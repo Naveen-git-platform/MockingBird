@@ -29,10 +29,44 @@ function fakeIpc() {
   return { handlers, handle: (ch, fn) => handlers.set(ch, fn) };
 }
 
+const fakeCapture = {
+  listSources: async () => [{ id: 'screen:1:0' }],
+  captureScreen: async (o) => ({ mimeType: 'image/png', data: `screen-${o.displayId}` }),
+  captureSource: async (id) => ({ mimeType: 'image/png', data: id }),
+  captureArea: async (id, r, v) => ({ mimeType: 'image/png', data: `${id}-${r.x}-${v.width}` }),
+  readClipboardImage: () => null,
+};
+
 test('registerIpc wires every allowed channel', () => {
   const ipc = fakeIpc();
-  registerIpc(ipc, { config, appInfo: { name: 'MockingBird' } });
+  registerIpc(ipc, { config, appInfo: { name: 'MockingBird' }, capture: fakeCapture });
   for (const ch of ALLOWED_INVOKE) assert.ok(ipc.handlers.has(ch), ch);
+});
+
+test('capture channels are skipped when no capture service is supplied', () => {
+  const ipc = fakeIpc();
+  registerIpc(ipc, { config, appInfo: {} });
+  assert.equal(ipc.handlers.has(INVOKE_CHANNELS.CAPTURE_SCREEN), false);
+  assert.equal(ipc.handlers.has(INVOKE_CHANNELS.INPUT_VALIDATE), true);
+});
+
+test('capture handlers return data URLs and pass arguments through', async () => {
+  const ipc = fakeIpc();
+  registerIpc(ipc, { config, appInfo: {}, capture: fakeCapture });
+  const h = (ch) => ipc.handlers.get(ch);
+  assert.deepEqual(await h(INVOKE_CHANNELS.CAPTURE_SOURCES)(), [{ id: 'screen:1:0' }]);
+  assert.equal(await h(INVOKE_CHANNELS.CAPTURE_SCREEN)({}, { displayId: 3 }), 'data:image/png;base64,screen-3');
+  assert.equal(await h(INVOKE_CHANNELS.CAPTURE_SOURCE)({}, 'w1'), 'data:image/png;base64,w1');
+  assert.equal(await h(INVOKE_CHANNELS.CAPTURE_AREA)({}, 'w1', { x: 4 }, { width: 9 }), 'data:image/png;base64,w1-4-9');
+  assert.equal(await h(INVOKE_CHANNELS.CLIPBOARD_IMAGE)(), null);
+});
+
+test('input:validate normalizes renderer input', async () => {
+  const ipc = fakeIpc();
+  registerIpc(ipc, { config, appInfo: {} });
+  const validate = ipc.handlers.get(INVOKE_CHANNELS.INPUT_VALIDATE);
+  assert.deepEqual(await validate({}, { text: ' hi ' }), { text: 'hi', images: [] });
+  assert.throws(() => validate({}, { text: '' }), /Type a question/);
 });
 
 test('app:info returns a copy of app info', async () => {
