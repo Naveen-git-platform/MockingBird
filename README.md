@@ -1,34 +1,102 @@
 # MockingBird
 
-An AI interview practice trainer for the desktop. Practice coding, system design, SQL and behavioral
-questions by voice, text or screenshot, and get hints first, then full feedback.
+An AI interview practice trainer for the desktop. Practise coding, system design, SQL and behavioral
+questions by typing, speaking or pasting a screenshot, and get coached instead of just answered:
+hints first, scored feedback, and a progress record.
 
-> Status: early development. Features land one branch at a time (see the roadmap).
+## Features
 
-## Roadmap
+- **Practice chat.** Ask anything in a chosen interview type, language and help level (hints only,
+  guided approach, or the full solution). Follow-up questions keep their context.
+- **Mock interviews.** The AI interviewer asks questions at your difficulty, scores each answer from
+  0 to 10 with strengths and improvements, gives up to three progressive hints, and writes a final report.
+- **Any input.** Type, paste an image, pick any screen or window and drag to crop it, or speak.
+- **Voice.** Local Whisper speech-to-text with pause detection or manual start and stop, from the
+  microphone or (on Windows) system audio.
+- **Your choice of AI.** Google Gemini, OpenAI (and compatible servers), Anthropic Claude, or local
+  models through Ollama, with automatic fallback between the ones you have set up.
+- **Progress.** Finished interviews are saved on your computer with averages, a trend, a practice
+  streak and Markdown export.
+- **Private by default.** No telemetry. API keys are encrypted with your operating system's secure
+  storage. The only data that leaves your computer is the question you send to your chosen AI provider.
 
-| Branch | Feature |
-|---|---|
-| `feat/app-core` | Electron shell, config, logging |
-| `feat/llm-providers` | Gemini, OpenAI, Anthropic and Ollama |
-| `feat/interview-modes` | DSA, system design, behavioral, SQL, hint-first answers |
-| `feat/input-capture` | Screen, window and area capture, pasted images, typed questions |
-| `feat/voice-input` | Local Whisper speech-to-text, optional system audio |
-| `feat/mock-interview` | Interviewer, scoring and feedback loop |
-| `feat/history-progress` | Saved sessions, markdown export, progress stats |
-| `feat/ui-refresh` | New interface and onboarding |
-| `feat/security-release` | Encrypted API keys, installers |
+## Getting started
+
+Requires [Node.js](https://nodejs.org/) 20 or newer.
+
+```bash
+git clone https://github.com/Naveen-git-platform/MockingBird.git
+cd MockingBird
+npm install
+npm start
+```
+
+Open **Settings**, choose a provider and paste its API key (for example from
+[Google AI Studio](https://aistudio.google.com/) for Gemini). Keys can also come from the
+`GEMINI_API_KEY`, `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` environment variables. Ollama needs no key:
+start it and pull a model such as `ollama pull llama3.2`.
+
+### Voice input (optional)
+
+Voice uses a local [Whisper](https://github.com/openai/whisper) model, so audio never leaves your computer.
+
+```bash
+pip install openai-whisper
+```
+
+The first use downloads the model (about 460 MB for `small`). Set a different Python in the
+`WHISPER_PYTHON` environment variable if needed.
+
+### Installers
+
+Tagged releases build a Windows installer and portable `.exe`, and Linux `.AppImage` and `.deb`
+packages (`npm run dist:win`, `npm run dist:linux`). They are not code signed, so Windows
+SmartScreen may ask you to confirm.
 
 ## Development
 
 ```bash
-npm test
+npm test         # unit tests (Node's built-in runner)
+npm run smoke    # boots the real app headlessly and checks the UI loads without errors
+npm run pack     # builds an unpacked app into dist/
 ```
+
+To iterate on the UI in a plain browser with a mock backend, run
+`node tools/ui-preview/serve.js` and open `http://127.0.0.1:5178`.
+
+```
+src/main/        Electron main process
+  llm/           provider adapters (Gemini, OpenAI, Anthropic, Ollama), retry and fallback
+  modes/         interview types, answer depths, languages, prompt builder
+  interview/     mock interview state machine, scoring, reports
+  practice/      practice chat service
+  capture/       screen, window and area capture, input validation
+  voice/         pause detection, Whisper worker client, voice controller
+  history/       saved interviews, progress stats, Markdown export
+  settings/      encrypted API keys and persisted preferences
+src/preload/     the sandboxed bridge between UI and main process
+src/renderer/    the user interface (plain HTML, CSS and JavaScript)
+scripts/         the Python Whisper worker and the Electron launcher
+```
+
+## Security notes
+
+- The window is sandboxed with context isolation; the UI can only call an explicit allowlist of
+  IPC channels, and the Content Security Policy forbids inline scripts.
+- Model output is rendered with an escaping Markdown renderer (no raw HTML, only http/https/mailto links).
+- Links open in your system browser; the app window cannot navigate away from its own files.
+- API keys are never written in plain text, and are never sent back to the UI.
+
+## Responsible use
+
+MockingBird is built for practice and learning. Follow the rules of any real interview or assessment
+you take.
 
 ## Credits
 
 MockingBird started from ideas and code in [OpenCluely](https://github.com/TechyCSR/OpenCluely) by
-TechyCSR (Apache-2.0). See [NOTICE](NOTICE).
+TechyCSR (Apache-2.0): the screen-capture approach, the pause-based voice segmentation and the
+persistent Whisper worker design. It has been rewritten and extended; see [NOTICE](NOTICE).
 
 ## License
 

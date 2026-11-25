@@ -20,4 +20,13 @@ function resolvePython({ configured = '', env = process.env, dataDir, platform =
   return { path: platform === 'win32' ? 'python' : 'python3', source: 'system' };
 }
 
-module.exports = { resolvePython };
+/**
+ * Path to the Whisper worker script. Python cannot read inside an asar archive, so a
+ * packaged app uses the copy unpacked next to it.
+ */
+function resolveWorkerScript({ isPackaged, resourcesPath, appRoot }) {
+  if (isPackaged) return path.join(resourcesPath, 'app.asar.unpacked', 'scripts', 'whisper_worker.py');
+  return path.join(appRoot, 'scripts', 'whisper_worker.py');
+}
+
+module.exports = { resolvePython, resolveWorkerScript };

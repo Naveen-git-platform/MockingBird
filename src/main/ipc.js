@@ -9,7 +9,7 @@ const toDataUrl = (img) => (img ? `data:${img.mimeType};base64,${img.data}` : nu
  * Register IPC handlers. `ipcMain` is injected so tests can pass a fake.
  * Capture and voice handlers are registered only when their service is supplied.
  */
-function registerIpc(ipcMain, { config, appInfo, capture, voice, interview, interviewOptions, history, practice, practiceOptions, llm }) {
+function registerIpc(ipcMain, { config, appInfo, capture, voice, interview, interviewOptions, history, practice, practiceOptions, llm, settings }) {
   ipcMain.handle(C.APP_INFO, () => ({ ...appInfo }));
   ipcMain.handle(C.CONFIG_GET, (_event, keyPath) => {
     if (typeof keyPath !== 'string' || keyPath.length === 0) return config.toJSON();
@@ -46,6 +46,13 @@ function registerIpc(ipcMain, { config, appInfo, capture, voice, interview, inte
   }
 
   if (interview) registerInterviewIpc(ipcMain, interview, interviewOptions);
+
+  if (settings) {
+    ipcMain.handle(C.SETTINGS_GET, () => settings.get());
+    ipcMain.handle(C.SETTINGS_SET, (_event, key, value) => settings.setSetting(key, value));
+    ipcMain.handle(C.SETTINGS_SET_KEY, (_event, name, value) => settings.setKey(name, value));
+    ipcMain.handle(C.SETTINGS_DELETE_KEY, (_event, name) => settings.deleteKey(name));
+  }
 
   if (llm) ipcMain.handle(C.LLM_STATUS, () => llm.describe());
 

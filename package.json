@@ -16,9 +16,70 @@
   "scripts": {
     "start": "node scripts/run-electron.js",
     "smoke": "node scripts/run-electron.js --smoke",
-    "test": "node --test"
+    "test": "node --test",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:linux": "electron-builder --linux"
   },
   "devDependencies": {
-    "electron": "^45.5.0"
+    "electron": "^45.5.0",
+    "electron-builder": "^26.18.0"
+  },
+  "homepage": "https://github.com/Naveen-git-platform/MockingBird",
+  "build": {
+    "appId": "io.github.naveen-git-platform.mockingbird",
+    "productName": "MockingBird",
+    "copyright": "Copyright 2026 Naveen-git-platform",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "scripts/whisper_worker.py",
+      "package.json",
+      "LICENSE",
+      "NOTICE",
+      "!**/*.pyc",
+      "!**/__pycache__/**"
+    ],
+    "asarUnpack": [
+      "scripts/whisper_worker.py"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "MockingBird-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "MockingBird-Portable-${version}.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Education",
+      "maintainer": "Naveen-git-platform <noreply@users.noreply.github.com>",
+      "artifactName": "MockingBird-${version}.${ext}"
+    },
+    "icon": "build/icon.png"
   }
 }

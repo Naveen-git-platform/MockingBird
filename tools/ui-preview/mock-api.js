@@ -59,9 +59,26 @@
     { id: 'hist-0004', mode: 'system-design', language: null, difficulty: 'medium', role: '', startedAt: Date.now(), finishedAt: Date.now(), questionsAsked: 3, questionsAnswered: 3, averageScore: 8.1, hintsUsed: 0 },
   ];
 
+  const prefs = { primary: 'gemini', keys: { gemini: 'env' } };
+  const settingsState = () => ({
+    primary: prefs.primary,
+    secureStorage: true,
+    providers: ['gemini', 'openai', 'anthropic', 'ollama'].map((name) => ({
+      name,
+      model: { gemini: 'gemini-2.5-flash', openai: 'gpt-4o-mini', anthropic: 'claude-sonnet-5-5', ollama: 'llama3.2' }[name],
+      needsKey: name !== 'ollama',
+      keySource: prefs.keys[name] || null,
+      configured: name === 'ollama' || Boolean(prefs.keys[name]),
+    })),
+  });
+
   const handlers = {
     'app:info': () => ({ name: 'MockingBird', version: '0.1.0', platform: 'preview' }),
     'config:get': (_k, key) => ({ practice: { mode: 'dsa', language: 'python', style: 'guided' }, interview: { difficulty: 'medium', questionCount: 3, role: '' }, voice: { enabled: true, model: 'small', mode: 'vad' }, app: { dataDir: '~/.MockingBird' } }[key]),
+    'settings:get': () => settingsState(),
+    'settings:set': (_k, key, value) => { if (key === 'llm.primary') prefs.primary = value; return settingsState(); },
+    'settings:set-key': (_k, name) => { prefs.keys[name] = 'stored'; return settingsState(); },
+    'settings:delete-key': (_k, name) => { delete prefs.keys[name]; return settingsState(); },
     'llm:status': () => [{ name: 'gemini', model: 'gemini-2.5-flash', configured: true }, { name: 'openai', model: 'gpt-4o-mini', configured: false }],
     'practice:options': () => ({
       modes: [{ id: 'dsa', label: 'Data structures & algorithms', needsLanguage: true }, { id: 'system-design', label: 'System design', needsLanguage: false }, { id: 'behavioral', label: 'Behavioral', needsLanguage: false }, { id: 'sql', label: 'SQL & databases', needsLanguage: false }, { id: 'explain', label: 'Explain a concept', needsLanguage: false }],

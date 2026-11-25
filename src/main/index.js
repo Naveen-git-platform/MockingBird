@@ -1,14 +1,19 @@
 'use strict';
 
 const path = require('node:path');
-const { app, BrowserWindow, ipcMain, desktopCapturer, screen, clipboard, session, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, desktopCapturer, screen, clipboard, session, dialog, safeStorage, shell } = require('electron');
 const { CaptureService } = require('./capture/capture-service');
 const { WhisperWorker } = require('./voice/whisper-worker');
 const { VoiceController } = require('./voice/voice-controller');
-const { resolvePython } = require('./voice/python-env');
+const { resolvePython, resolveWorkerScript } = require('./voice/python-env');
+const { hardenWebContents } = require('./security');
+const { SecretStore } = require('./settings/secrets');
+const { UserSettings } = require('./settings/user-settings');
+const { SettingsService } = require('./settings/service');
+const { makeKeyResolver } = require('./settings/keys');
 const { installMediaHandlers } = require('./media');
 const { createLlmService } = require('./llm/service');
-const { createProvider } = require('./llm/registry');
+const { createProvider, listProviderNames } = require('./llm/registry');
 const { InterviewManager } = require('./interview/manager');
 const { interviewOptions } = require('./interview/options');
 const { PracticeService } = require('./practice/service');
@@ -20,7 +25,12 @@ const { createLogger } = require('../shared/logger');
 const { buildWindowOptions } = require('./window-options');
 const { registerIpc, registerChannelList, bindVoiceEvents } = require('./ipc');
 
-const config = new Config();
+const baseConfig = new Config();
+const userSettings = new UserSettings({
+  file: path.join(baseConfig.get('app.dataDir'), 'settings.json'),
+  providers: listProviderNames(),
+});
+const config = new Config({ overrides: userSettings.overrides() });
 const logger = createLogger({
   scope: 'main',
   level: config.get('logging.level'),
@@ -30,8 +40,12 @@ const logger = createLogger({
 const smokeMode = process.env.MOCKINGBIRD_SMOKE === '1';
 
 function createMainWindow() {
-  const win = new BrowserWindow(buildWindowOptions(config));
+  const options = buildWindowOptions(config);
+  // Packaged builds embed the icon in the executable; in development use the source PNG.
+  if (!app.isPackaged) options.icon = path.join(__dirname, '..', '..', 'build', 'icon.png');
+  const win = new BrowserWindow(options);
   win.removeMenu();
+  hardenWebContents(win.webContents, { shell });
   win.once('ready-to-show', () => win.show());
   const rendererErrors = [];
   win.webContents.on('console-message', (event, ...legacy) => {
@@ -79,7 +93,7 @@ if (!app.requestSingleInstanceLock()) {
     const python = resolvePython({ configured: config.get('voice.pythonPath'), dataDir: config.get('app.dataDir') });
     whisperWorker = new WhisperWorker({
       pythonPath: python.path,
-      scriptPath: path.join(__dirname, '..', '..', 'scripts', 'whisper_worker.py'),
+      scriptPath: resolveWorkerScript({ isPackaged: app.isPackaged, resourcesPath: process.resourcesPath, appRoot: path.join(__dirname, '..', '..') }),
       idleUnloadMs: config.get('voice.idleUnloadMs'),
       logger: logger.child('whisper'),
     });
@@ -105,7 +119,14 @@ if (!app.requestSingleInstanceLock()) {
     installMediaHandlers(session.defaultSession, { desktopCapturer });
     const voice = createVoice();
     if (voice) bindVoiceEvents(voice, () => BrowserWindow.getAllWindows());
-    const llm = createLlmService(config, { createProvider, logger: logger.child('llm') });
+    const secrets = new SecretStore({ file: path.join(config.get('app.dataDir'), 'secrets.json'), safeStorage });
+    const llm = createLlmService(config, {
+      createProvider,
+      logger: logger.child('llm'),
+      getApiKey: makeKeyResolver({ secrets }),
+      providerNames: listProviderNames(),
+    });
+    const settings = new SettingsService({ config, secrets, userSettings, llm, providerNames: listProviderNames() });
     const history = config.get('history.enabled')
       ? new HistoryService({
           store: new HistoryStore({ dir: path.join(config.get('app.dataDir'), 'history'), logger: logger.child('history') }),
@@ -146,6 +167,7 @@ if (!app.requestSingleInstanceLock()) {
       practice,
       practiceOptions,
       llm,
+      settings,
     });
     createMainWindow();
     app.on('activate', () => {
