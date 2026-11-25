@@ -38,6 +38,9 @@ function defaults(homeDir) {
       style: 'guided',
       maxHistory: 15,
     },
+    history: {
+      enabled: true,
+    },
     interview: {
       difficulty: 'medium',
       questionCount: 5,

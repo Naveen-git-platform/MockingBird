@@ -40,7 +40,7 @@ const fakeCapture = {
 test('registerIpc wires every allowed channel', () => {
   const ipc = fakeIpc();
   ipc.on = () => {};
-  registerIpc(ipc, { config, appInfo: { name: 'MockingBird' }, capture: fakeCapture, voice: { state: 'idle', mode: 'vad' }, interview: {} });
+  registerIpc(ipc, { config, appInfo: { name: 'MockingBird' }, capture: fakeCapture, voice: { state: 'idle', mode: 'vad' }, interview: {}, history: {} });
   for (const ch of ALLOWED_INVOKE) assert.ok(ipc.handlers.has(ch), ch);
 });
 

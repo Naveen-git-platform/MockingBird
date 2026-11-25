@@ -22,6 +22,12 @@ const INVOKE_CHANNELS = Object.freeze({
   INTERVIEW_FINISH: 'interview:finish',
   INTERVIEW_STATE: 'interview:state',
   INTERVIEW_DISCARD: 'interview:discard',
+  HISTORY_LIST: 'history:list',
+  HISTORY_GET: 'history:get',
+  HISTORY_DELETE: 'history:delete',
+  HISTORY_CLEAR: 'history:clear',
+  HISTORY_STATS: 'history:stats',
+  HISTORY_EXPORT: 'history:export',
 });
 
 // Fire-and-forget messages from renderer to main.
