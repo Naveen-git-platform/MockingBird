@@ -20,6 +20,8 @@ hints first, scored feedback, and a progress record.
   models through Ollama, with automatic fallback between the ones you have set up.
 - **Progress.** Finished interviews are saved on your computer with averages, a trend, a practice
   streak and Markdown export.
+- **Themes.** Seven colour themes (Midnight, Daylight, Ocean, Forest, Sunset, Paper, or match your system)
+  that switch instantly in every window.
 - **Private by default.** No telemetry. API keys are encrypted with your operating system's secure
   storage. The only data that leaves your computer is the question you send to your chosen AI provider.
 
@@ -77,6 +79,7 @@ On macOS, `Ctrl` is `Cmd`.
 npm test         # unit tests (Node's built-in runner)
 npm run smoke    # boots the real app headlessly and checks the UI loads without errors
 npm run pack     # builds an unpacked app into dist/
+npm run build:themes  # regenerates src/renderer/tokens.css after editing src/shared/themes.js
 ```
 
 To iterate on the UI in a plain browser with a mock backend, run

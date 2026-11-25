@@ -175,6 +175,30 @@
         );
       }
 
+      if (settings && settings.themes) {
+        const swatches = el('div', { class: 'themes', role: 'radiogroup', 'aria-label': 'Colour theme' });
+        for (const t of settings.themes) {
+          const dots = el('span', { class: 'dots' }, t.swatch.map((c) => {
+            const dot = el('i');
+            dot.style.background = c;
+            return dot;
+          }));
+          const btn = el('button', { class: `theme-btn${t.id === settings.theme ? ' selected' : ''}`, type: 'button', role: 'radio', 'aria-checked': String(t.id === settings.theme), title: t.label }, dots, el('span', { text: t.label }));
+          btn.addEventListener('click', async () => {
+            if (await MB.call('settings:set', 'ui.theme', t.id)) {
+              swatches.querySelectorAll('.theme-btn').forEach((b) => {
+                b.classList.remove('selected');
+                b.setAttribute('aria-checked', 'false');
+              });
+              btn.classList.add('selected');
+              btn.setAttribute('aria-checked', 'true');
+            }
+          });
+          swatches.append(btn);
+        }
+        root.append(el('div', { class: 'card' }, el('h3', { text: 'Appearance' }), el('p', { class: 'sub', text: 'Pick a colour theme. It applies to the app and the overlay immediately.' }), swatches));
+      }
+
       if (settings && settings.shortcuts) root.append(shortcutsCard());
 
       root.append(

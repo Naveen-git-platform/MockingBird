@@ -212,6 +212,9 @@ if (!app.requestSingleInstanceLock()) {
       providerNames: listProviderNames(),
       onChange: (key, value) => {
         if (key === 'overlay.opacity') overlayManager.setOpacity(value);
+        if (key === 'ui.theme') {
+          for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) win.webContents.send('theme:changed', { theme: value });
+        }
         if (key.startsWith('practice.')) practice.defaults[key.slice('practice.'.length)] = value;
       },
     });
