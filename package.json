@@ -20,7 +20,8 @@
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
     "dist:win": "electron-builder --win",
-    "dist:linux": "electron-builder --linux"
+    "dist:linux": "electron-builder --linux",
+    "build:themes": "node scripts/build-themes.js"
   },
   "devDependencies": {
     "electron": "^45.5.0",

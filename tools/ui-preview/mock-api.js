@@ -59,7 +59,8 @@
     { id: 'hist-0004', mode: 'system-design', language: null, difficulty: 'medium', role: '', startedAt: Date.now(), finishedAt: Date.now(), questionsAsked: 3, questionsAnswered: 3, averageScore: 8.1, hintsUsed: 0 },
   ];
 
-  const prefs = { primary: 'gemini', keys: { gemini: 'env' }, routing: 'chat', opacity: 0.95, shortcutsEnabled: true, shortcuts: { captureAsk: 'CommandOrControl+Shift+S', toggleVoice: 'Alt+Shift+V', toggleOverlay: 'CommandOrControl+Shift+O', toggleClickThrough: 'CommandOrControl+Shift+I', showWindow: 'CommandOrControl+Shift+M' } };
+  const THEME_LIST = [['system', 'Match my system', '#0e1014', '#161a21', '#7c9cff'], ['dark', 'Midnight', '#0e1014', '#161a21', '#7c9cff'], ['light', 'Daylight', '#f5f6f9', '#ffffff', '#3b5bdb'], ['ocean', 'Ocean', '#0a1620', '#0f2231', '#38bdf8'], ['forest', 'Forest', '#0c130f', '#121c16', '#4ade80'], ['sunset', 'Sunset', '#150f12', '#1f1519', '#fb923c'], ['paper', 'Paper', '#f6f1e7', '#fffdf8', '#b45309']].map(([id, label, a, b, c]) => ({ id, label, scheme: 'dark', swatch: [a, b, c] }));
+  const prefs = { theme: 'system', primary: 'gemini', keys: { gemini: 'env' }, routing: 'chat', opacity: 0.95, shortcutsEnabled: true, shortcuts: { captureAsk: 'CommandOrControl+Shift+S', toggleVoice: 'Alt+Shift+V', toggleOverlay: 'CommandOrControl+Shift+O', toggleClickThrough: 'CommandOrControl+Shift+I', showWindow: 'CommandOrControl+Shift+M' } };
   const DEFAULTS = { captureAsk: 'CommandOrControl+Shift+S', toggleVoice: 'Alt+Shift+V', toggleOverlay: 'CommandOrControl+Shift+O', toggleClickThrough: 'CommandOrControl+Shift+I', showWindow: 'CommandOrControl+Shift+M' };
   const LABELS = { captureAsk: 'Capture the screen and answer', toggleVoice: 'Start or stop voice input', toggleOverlay: 'Show or hide the overlay', toggleClickThrough: 'Overlay click-through on or off', showWindow: 'Show the MockingBird window' };
   const shortcutRows = () => Object.keys(DEFAULTS).map((action) => ({ action, label: LABELS[action], accelerator: prefs.shortcuts[action], defaultAccelerator: DEFAULTS[action], ok: prefs.shortcutsEnabled && action !== 'toggleVoice', error: prefs.shortcutsEnabled ? (action === 'toggleVoice' ? 'Another app is already using this shortcut' : null) : 'Shortcuts are turned off' }));
@@ -67,6 +68,8 @@
   let answerSeq = 0;
   const settingsState = () => ({
     primary: prefs.primary,
+    theme: prefs.theme,
+    themes: THEME_LIST,
     routing: prefs.routing,
     practice: { mode: 'dsa', language: 'python', style: 'guided' },
     shortcutsEnabled: prefs.shortcutsEnabled,
@@ -84,9 +87,9 @@
 
   const handlers = {
     'app:info': () => ({ name: 'MockingBird', version: '0.1.0', platform: 'preview' }),
-    'config:get': (_k, key) => ({ practice: { mode: 'dsa', language: 'python', style: 'guided' }, interview: { difficulty: 'medium', questionCount: 3, role: '' }, voice: { enabled: true, model: 'small', mode: 'vad' }, app: { dataDir: '~/.MockingBird' } }[key]),
+    'config:get': (_k, key) => ({ 'ui.theme': prefs.theme, practice: { mode: 'dsa', language: 'python', style: 'guided' }, interview: { difficulty: 'medium', questionCount: 3, role: '' }, voice: { enabled: true, model: 'small', mode: 'vad' }, app: { dataDir: '~/.MockingBird' } }[key]),
     'settings:get': () => settingsState(),
-    'settings:set': (_k, key, value) => { if (key === 'llm.primary') prefs.primary = value; if (key === 'routing.target') prefs.routing = value; if (key === 'overlay.opacity') prefs.opacity = value; if (key === 'shortcuts.enabled') prefs.shortcutsEnabled = value; if (key.startsWith('shortcuts.') && key !== 'shortcuts.enabled') prefs.shortcuts[key.slice(10)] = value; return settingsState(); },
+    'settings:set': (_k, key, value) => { if (key === 'llm.primary') prefs.primary = value; if (key === 'routing.target') prefs.routing = value; if (key === 'ui.theme') { prefs.theme = value; emit('theme:changed', { theme: value }); } if (key === 'overlay.opacity') prefs.opacity = value; if (key === 'shortcuts.enabled') prefs.shortcutsEnabled = value; if (key.startsWith('shortcuts.') && key !== 'shortcuts.enabled') prefs.shortcuts[key.slice(10)] = value; return settingsState(); },
     'settings:set-key': (_k, name) => { prefs.keys[name] = 'stored'; return settingsState(); },
     'settings:delete-key': (_k, name) => { delete prefs.keys[name]; return settingsState(); },
     'llm:status': () => [{ name: 'gemini', model: 'gemini-2.5-flash', configured: true }, { name: 'openai', model: 'gpt-4o-mini', configured: false }],

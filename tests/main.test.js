@@ -134,7 +134,7 @@ test('bindVoiceEvents forwards events to live windows only', () => {
 
 test('send and event allowlists contain exactly the declared channels', () => {
   assert.deepEqual([...ALLOWED_SEND], ['voice:frame']);
-  assert.deepEqual([...ALLOWED_EVENTS].sort(), ['answer:begin', 'answer:delta', 'answer:end', 'interview:delta', 'overlay:state-changed', 'shortcut:toggle-voice', 'voice:error', 'voice:status', 'voice:transcript']);
+  assert.deepEqual([...ALLOWED_EVENTS].sort(), ['answer:begin', 'answer:delta', 'answer:end', 'interview:delta', 'overlay:state-changed', 'shortcut:toggle-voice', 'theme:changed', 'voice:error', 'voice:status', 'voice:transcript']);
 });
 
 // ---- interview IPC ----

@@ -39,6 +39,9 @@ function defaults(homeDir) {
       style: 'guided',
       maxHistory: 15,
     },
+    ui: {
+      theme: 'system',
+    },
     routing: {
       target: 'chat',
     },

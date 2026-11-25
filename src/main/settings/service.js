@@ -2,6 +2,7 @@
 
 const { KEY_PROVIDERS, keySource } = require('./keys');
 const { ACTIONS } = require('../shortcuts');
+const { themeList } = require('../../shared/themes');
 
 /** Settings operations used by the IPC layer. Never returns a key value. */
 class SettingsService {
@@ -20,6 +21,8 @@ class SettingsService {
     return {
       primary: this.config.get('llm.primary'),
       routing: this.config.get('routing.target'),
+      theme: this.config.get('ui.theme'),
+      themes: themeList(),
       practice: {
         mode: this.config.get('practice.mode'),
         language: this.config.get('practice.language'),

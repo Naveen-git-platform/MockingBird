@@ -6,6 +6,7 @@ const { ACTIONS, isValidAccelerator } = require('../shortcuts');
 const { resolveMode } = require('../modes/modes');
 const { resolveStyle } = require('../modes/styles');
 const { resolveLanguage } = require('../modes/languages');
+const { isTheme } = require('../../shared/themes');
 
 /**
  * User-chosen settings that persist between runs (a small JSON file). Only an allowlist of
@@ -24,6 +25,7 @@ const ALLOWED = ({
 
 for (const action of Object.keys(ACTIONS)) ALLOWED[`shortcuts.${action}`] = (v) => isValidAccelerator(v);
 Object.assign(ALLOWED, {
+  'ui.theme': (v) => isTheme(v),
   'shortcuts.enabled': (v) => typeof v === 'boolean',
   'practice.mode': (v) => typeof v === 'string' && resolveMode(v) !== null,
   'practice.style': (v) => typeof v === 'string' && resolveStyle(v) !== null,
