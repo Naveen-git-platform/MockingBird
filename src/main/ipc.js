@@ -9,7 +9,7 @@ const toDataUrl = (img) => (img ? `data:${img.mimeType};base64,${img.data}` : nu
  * Register IPC handlers. `ipcMain` is injected so tests can pass a fake.
  * Capture and voice handlers are registered only when their service is supplied.
  */
-function registerIpc(ipcMain, { config, appInfo, capture, voice, interview, interviewOptions, history }) {
+function registerIpc(ipcMain, { config, appInfo, capture, voice, interview, interviewOptions, history, practice, practiceOptions, llm }) {
   ipcMain.handle(C.APP_INFO, () => ({ ...appInfo }));
   ipcMain.handle(C.CONFIG_GET, (_event, keyPath) => {
     if (typeof keyPath !== 'string' || keyPath.length === 0) return config.toJSON();
@@ -46,6 +46,28 @@ function registerIpc(ipcMain, { config, appInfo, capture, voice, interview, inte
   }
 
   if (interview) registerInterviewIpc(ipcMain, interview, interviewOptions);
+
+  if (llm) ipcMain.handle(C.LLM_STATUS, () => llm.describe());
+
+  if (practice) {
+    ipcMain.handle(C.PRACTICE_OPTIONS, () => (practiceOptions ? practiceOptions() : {}));
+    ipcMain.handle(C.PRACTICE_RESET, () => {
+      practice.reset();
+      return null;
+    });
+    ipcMain.handle(C.PRACTICE_ASK, async (event, raw) => {
+      const input = normalizeInput(raw);
+      const options = {};
+      for (const key of ['mode', 'style', 'language']) {
+        if (raw && typeof raw[key] === 'string') options[key] = raw[key];
+      }
+      return practice.ask(input, options, {
+        onDelta: (text) => {
+          if (!event.sender.isDestroyed?.()) event.sender.send(E.PRACTICE_DELTA, { text });
+        },
+      });
+    });
+  }
 
   if (history) {
     ipcMain.handle(C.HISTORY_LIST, (_event, opts) => history.list({ limit: opts && Number.isInteger(opts.limit) ? opts.limit : undefined }));

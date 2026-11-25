@@ -28,6 +28,10 @@ const INVOKE_CHANNELS = Object.freeze({
   HISTORY_CLEAR: 'history:clear',
   HISTORY_STATS: 'history:stats',
   HISTORY_EXPORT: 'history:export',
+  PRACTICE_ASK: 'practice:ask',
+  PRACTICE_RESET: 'practice:reset',
+  PRACTICE_OPTIONS: 'practice:options',
+  LLM_STATUS: 'llm:status',
 });
 
 // Fire-and-forget messages from renderer to main.
@@ -41,6 +45,7 @@ const EVENT_CHANNELS = Object.freeze({
   VOICE_STATUS: 'voice:status',
   VOICE_ERROR: 'voice:error',
   INTERVIEW_DELTA: 'interview:delta',
+  PRACTICE_DELTA: 'practice:delta',
 });
 
 const ALLOWED_INVOKE = new Set(Object.values(INVOKE_CHANNELS));

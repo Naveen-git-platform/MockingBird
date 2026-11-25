@@ -40,7 +40,7 @@ const fakeCapture = {
 test('registerIpc wires every allowed channel', () => {
   const ipc = fakeIpc();
   ipc.on = () => {};
-  registerIpc(ipc, { config, appInfo: { name: 'MockingBird' }, capture: fakeCapture, voice: { state: 'idle', mode: 'vad' }, interview: {}, history: {} });
+  registerIpc(ipc, { config, appInfo: { name: 'MockingBird' }, capture: fakeCapture, voice: { state: 'idle', mode: 'vad' }, interview: {}, history: {}, practice: {}, llm: {} });
   for (const ch of ALLOWED_INVOKE) assert.ok(ipc.handlers.has(ch), ch);
 });
 
@@ -134,7 +134,7 @@ test('bindVoiceEvents forwards events to live windows only', () => {
 
 test('send and event allowlists contain exactly the declared channels', () => {
   assert.deepEqual([...ALLOWED_SEND], ['voice:frame']);
-  assert.deepEqual([...ALLOWED_EVENTS].sort(), ['interview:delta', 'voice:error', 'voice:status', 'voice:transcript']);
+  assert.deepEqual([...ALLOWED_EVENTS].sort(), ['interview:delta', 'practice:delta', 'voice:error', 'voice:status', 'voice:transcript']);
 });
 
 // ---- interview IPC ----

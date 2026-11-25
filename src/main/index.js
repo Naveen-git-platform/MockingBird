@@ -11,6 +11,8 @@ const { createLlmService } = require('./llm/service');
 const { createProvider } = require('./llm/registry');
 const { InterviewManager } = require('./interview/manager');
 const { interviewOptions } = require('./interview/options');
+const { PracticeService } = require('./practice/service');
+const { practiceOptions } = require('./practice/options');
 const { HistoryStore } = require('./history/store');
 const { HistoryService } = require('./history/service');
 const { Config } = require('../shared/config');
@@ -107,6 +109,15 @@ if (!app.requestSingleInstanceLock()) {
         role: config.get('interview.role'),
       },
     });
+    const practice = new PracticeService({
+      llm,
+      defaults: {
+        mode: config.get('practice.mode'),
+        language: config.get('practice.language'),
+        style: config.get('practice.style'),
+        maxHistory: config.get('practice.maxHistory'),
+      },
+    });
     registerIpc(ipcMain, {
       config,
       appInfo: { name: app.getName(), version: app.getVersion(), platform: process.platform },
@@ -115,6 +126,9 @@ if (!app.requestSingleInstanceLock()) {
       interview,
       interviewOptions,
       history,
+      practice,
+      practiceOptions,
+      llm,
     });
     createMainWindow();
     app.on('activate', () => {
