@@ -1,12 +1,16 @@
 'use strict';
 
 const path = require('node:path');
-const { app, BrowserWindow, ipcMain, desktopCapturer, screen, clipboard } = require('electron');
+const { app, BrowserWindow, ipcMain, desktopCapturer, screen, clipboard, session } = require('electron');
 const { CaptureService } = require('./capture/capture-service');
+const { WhisperWorker } = require('./voice/whisper-worker');
+const { VoiceController } = require('./voice/voice-controller');
+const { resolvePython } = require('./voice/python-env');
+const { installMediaHandlers } = require('./media');
 const { Config } = require('../shared/config');
 const { createLogger } = require('../shared/logger');
 const { buildWindowOptions } = require('./window-options');
-const { registerIpc } = require('./ipc');
+const { registerIpc, bindVoiceEvents } = require('./ipc');
 
 const config = new Config();
 const logger = createLogger({
@@ -44,11 +48,44 @@ if (!app.requestSingleInstanceLock()) {
     }
   });
 
+  let whisperWorker = null;
+
+  function createVoice() {
+    if (!config.get('voice.enabled')) return null;
+    const python = resolvePython({ configured: config.get('voice.pythonPath'), dataDir: config.get('app.dataDir') });
+    whisperWorker = new WhisperWorker({
+      pythonPath: python.path,
+      scriptPath: path.join(__dirname, '..', '..', 'scripts', 'whisper_worker.py'),
+      idleUnloadMs: config.get('voice.idleUnloadMs'),
+      logger: logger.child('whisper'),
+    });
+    return new VoiceController({
+      worker: whisperWorker,
+      settings: {
+        model: config.get('voice.model'),
+        language: config.get('voice.language'),
+        device: config.get('voice.device'),
+        modelDir: config.get('voice.modelDir') || null,
+        manualMaxMs: config.get('voice.manualMaxMs'),
+        vad: config.get('voice.vad'),
+      },
+      logger: logger.child('voice'),
+    });
+  }
+
+  app.on('before-quit', () => {
+    whisperWorker?.close();
+  });
+
   app.whenReady().then(() => {
+    installMediaHandlers(session.defaultSession, { desktopCapturer });
+    const voice = createVoice();
+    if (voice) bindVoiceEvents(voice, () => BrowserWindow.getAllWindows());
     registerIpc(ipcMain, {
       config,
       appInfo: { name: app.getName(), version: app.getVersion(), platform: process.platform },
       capture: new CaptureService({ desktopCapturer, screen, clipboard, logger: logger.child('capture') }),
+      voice,
     });
     createMainWindow();
     app.on('activate', () => {

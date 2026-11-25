@@ -39,7 +39,8 @@ const fakeCapture = {
 
 test('registerIpc wires every allowed channel', () => {
   const ipc = fakeIpc();
-  registerIpc(ipc, { config, appInfo: { name: 'MockingBird' }, capture: fakeCapture });
+  ipc.on = () => {};
+  registerIpc(ipc, { config, appInfo: { name: 'MockingBird' }, capture: fakeCapture, voice: { state: 'idle', mode: 'vad' } });
   for (const ch of ALLOWED_INVOKE) assert.ok(ipc.handlers.has(ch), ch);
 });
 
@@ -85,4 +86,53 @@ test('config:get returns a value for a path and the full config without one', as
   assert.equal(await get({}, 'window.width'), 980);
   assert.equal((await get({})).app.name, 'MockingBird');
   assert.equal((await get({}, 42)).app.name, 'MockingBird');
+});
+
+// ---- voice IPC ----
+const { bindVoiceEvents } = require('../src/main/ipc');
+const { EventEmitter } = require('node:events');
+const { SEND_CHANNELS, EVENT_CHANNELS, ALLOWED_SEND, ALLOWED_EVENTS } = require('../src/shared/channels');
+
+function fakeIpcWithOn() {
+  const ipc = fakeIpc();
+  ipc.listeners = new Map();
+  ipc.on = (ch, fn) => ipc.listeners.set(ch, fn);
+  return ipc;
+}
+
+test('voice handlers drive the controller and forward frames as Buffers', async () => {
+  const frames = [];
+  const voice = { state: 'idle', mode: 'vad', start(o) { this.state = 'listening'; this.mode = o.mode || 'vad'; }, async stop() { this.state = 'idle'; }, pushFrame: (b) => frames.push(b) };
+  const ipc = fakeIpcWithOn();
+  registerIpc(ipc, { config, appInfo: {}, voice });
+  assert.deepEqual(await ipc.handlers.get(INVOKE_CHANNELS.VOICE_START)({}, { mode: 'manual' }), { state: 'listening', mode: 'manual' });
+  assert.deepEqual(await ipc.handlers.get(INVOKE_CHANNELS.VOICE_STATUS)(), { state: 'listening', mode: 'manual' });
+  assert.deepEqual(await ipc.handlers.get(INVOKE_CHANNELS.VOICE_STOP)(), { state: 'idle', mode: 'manual' });
+  const frame = ipc.listeners.get(SEND_CHANNELS.VOICE_FRAME);
+  frame({}, new Int16Array([1, 2]).buffer);
+  frame({}, new Uint8Array([9, 8, 7]));
+  frame({}, 'junk');
+  assert.equal(frames.length, 2);
+  assert.equal(frames[0].length, 4);
+  assert.equal(frames[1].length, 3);
+});
+
+test('bindVoiceEvents forwards events to live windows only', () => {
+  const sent = [];
+  const win = (destroyed) => ({ isDestroyed: () => destroyed, webContents: { send: (ch, p) => sent.push([ch, p]) } });
+  const voice = new EventEmitter();
+  bindVoiceEvents(voice, () => [win(false), win(true)]);
+  voice.emit('transcript', { text: 'hi' });
+  voice.emit('status', { state: 'listening' });
+  voice.emit('error', new Error('boom'));
+  assert.deepEqual(sent, [
+    [EVENT_CHANNELS.VOICE_TRANSCRIPT, { text: 'hi' }],
+    [EVENT_CHANNELS.VOICE_STATUS, { state: 'listening' }],
+    [EVENT_CHANNELS.VOICE_ERROR, { message: 'boom' }],
+  ]);
+});
+
+test('send and event allowlists contain exactly the declared channels', () => {
+  assert.deepEqual([...ALLOWED_SEND], ['voice:frame']);
+  assert.equal(ALLOWED_EVENTS.size, 3);
 });
