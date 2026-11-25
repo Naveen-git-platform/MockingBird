@@ -38,6 +38,12 @@ function defaults(homeDir) {
       style: 'guided',
       maxHistory: 15,
     },
+    routing: {
+      target: 'chat',
+    },
+    overlay: {
+      opacity: 0.95,
+    },
     history: {
       enabled: true,
     },

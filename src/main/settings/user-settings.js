@@ -13,6 +13,8 @@ const ALLOWED = Object.freeze({
   'llm.providers.openai.model': (v) => modelOk(v),
   'llm.providers.anthropic.model': (v) => modelOk(v),
   'llm.providers.ollama.model': (v) => modelOk(v),
+  'routing.target': (v) => ['chat', 'overlay', 'both'].includes(v),
+  'overlay.opacity': (v) => typeof v === 'number' && v >= 0.3 && v <= 1,
   'llm.providers.ollama.baseUrl': (v) => /^https?:\/\/[^\s]+$/.test(v) && v.length < 200,
 });
 

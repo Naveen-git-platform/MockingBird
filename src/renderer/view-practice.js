@@ -1,21 +1,59 @@
-/* Practice view: free-form questions in a chosen mode, language and answer depth. */
+/* Practice view: free-form questions in a chosen mode, language and answer depth.
+ * Messages come from `answer:*` events, so answers started anywhere (the composer, a
+ * shortcut) appear in the chat when routing includes it, even while another view is open. */
 (function () {
   const MB = window.MB;
   const { el } = MB;
 
-  let state = null; // survives view switches: { messages: [{role, text, images, error}], options }
+  // ----- conversation store (lives for the whole session) -----
+  const store = {
+    messages: [], // { role, text, images?, error? }
+    liveId: null, // id of the answer currently streaming
+    options: null,
+    listeners: new Set(),
+    changed() {
+      this.listeners.forEach((fn) => fn());
+    },
+  };
+  MB.practiceStore = store;
 
-  function ensureState() {
-    if (!state) state = { messages: [], options: null, busy: false };
-    return state;
+  function liveMessage() {
+    const last = store.messages[store.messages.length - 1];
+    return last && last.live ? last : null;
   }
 
+  MB.api.on('answer:begin', ({ id, question, images }) => {
+    store.liveId = id;
+    store.messages.push({ role: 'user', text: question, images: images || [] });
+    store.messages.push({ role: 'assistant', text: '', live: true });
+    store.changed();
+  });
+  MB.api.on('answer:delta', ({ id, text }) => {
+    const m = liveMessage();
+    if (!m || id !== store.liveId) return;
+    m.text += text;
+    store.changed();
+  });
+  MB.api.on('answer:end', ({ id, text, error }) => {
+    const m = liveMessage();
+    if (!m || id !== store.liveId) return;
+    m.live = false;
+    if (error) {
+      m.error = true;
+      m.text = error;
+    } else if (typeof text === 'string') {
+      m.text = text;
+    }
+    store.liveId = null;
+    store.changed();
+  });
+
   MB.views.practice = {
-    unsub: null,
+    listener: null,
+    composer: null,
     async mount(host) {
-      const s = ensureState();
-      if (!s.options) s.options = await MB.call('practice:options');
-      const options = s.options || { modes: [], languages: [], styles: [] };
+      if (!store.options) store.options = await MB.call('practice:options');
+      const options = store.options || { modes: [], languages: [], styles: [] };
       const defaults = (await MB.call('config:get', 'practice')) || {};
 
       const prefs = {
@@ -45,19 +83,11 @@
       }
       syncLanguage();
 
-      let liveBubble = null;
-      let liveText = '';
-      const paintLive = MB.frameThrottle(() => {
-        if (liveBubble) liveBubble.innerHTML = MB.md(liveText);
-      });
-      this.unsub = MB.api.on('practice:delta', ({ text }) => {
-        liveText += text;
-        paintLive();
-      });
+      let routedNote = null; // shown when the last answer went only to the overlay
 
       function renderMessages() {
         chat.replaceChildren();
-        if (s.messages.length === 0) {
+        if (store.messages.length === 0 && !routedNote) {
           chat.append(
             el(
               'div',
@@ -70,38 +100,49 @@
           );
           return;
         }
-        for (const m of s.messages) {
+        for (const m of store.messages) {
           if (m.role === 'user') {
             const bubble = el('div', { class: 'msg user' });
-            if (m.images?.length) bubble.append(el('div', { class: 'thumbs' }, m.images.map((src) => el('div', { class: 'thumb' }, el('img', { src, alt: 'Attachment' })))));
+            if (m.images && m.images.length) {
+              bubble.append(el('div', { class: 'thumbs' }, m.images.map((src) => el('div', { class: 'thumb' }, el('img', { src, alt: 'Attachment' })))));
+            }
             bubble.append(m.text || '');
             chat.append(bubble);
           } else {
             const bubble = el('div', { class: `msg assistant${m.error ? ' error' : ''}` });
             if (m.error) bubble.textContent = m.text;
+            else if (!m.text) bubble.append(el('span', { class: 'typing', text: 'Thinking…' }));
             else bubble.innerHTML = MB.md(m.text);
             chat.append(bubble);
           }
         }
+        if (routedNote) chat.append(el('p', { class: 'sub', text: routedNote }));
       }
+      const paint = MB.frameThrottle(() => {
+        renderMessages();
+        chat.lastElementChild?.scrollIntoView({ block: 'end' });
+      });
+      this.listener = () => paint();
+      store.listeners.add(this.listener);
 
       const composer = MB.composer({
         placeholder: 'Ask a question, paste a problem, or attach a screenshot…',
         submitLabel: 'Ask',
+        autoAsk: true,
         onSubmit: async ({ text, images }) => {
-          s.messages.push({ role: 'user', text, images });
-          liveText = '';
-          liveBubble = el('div', { class: 'msg assistant' }, el('span', { class: 'typing', text: 'Thinking…' }));
-          renderMessages();
-          chat.append(liveBubble);
-          liveBubble.scrollIntoView({ block: 'end' });
-          const result = await MB.call('practice:ask', { text, images, mode: prefs.mode, language: prefs.language, style: prefs.style });
-          liveBubble = null;
-          if (result) s.messages.push({ role: 'assistant', text: result.text });
-          else s.messages.push({ role: 'assistant', error: true, text: 'That did not work. Check your AI provider settings and try again.' });
-          renderMessages();
-          chat.lastElementChild?.scrollIntoView({ block: 'end' });
-          return result ? undefined : false;
+          routedNote = null;
+          let result;
+          try {
+            result = await MB.api.invoke('practice:ask', { text, images, mode: prefs.mode, language: prefs.language, style: prefs.style });
+          } catch (err) {
+            MB.toast(MB.cleanError(err), 'error');
+            return false;
+          }
+          if (result && result.routed && !result.routed.chat) {
+            routedNote = 'The answer was sent to the overlay window.';
+            renderMessages();
+          }
+          return undefined;
         },
       });
       this.composer = composer;
@@ -120,7 +161,8 @@
               text: 'New chat',
               onclick: async () => {
                 await MB.call('practice:reset');
-                s.messages = [];
+                store.messages = [];
+                routedNote = null;
                 renderMessages();
               },
             })
@@ -131,12 +173,14 @@
         )
       );
       renderMessages();
+      chat.lastElementChild?.scrollIntoView({ block: 'end' });
       composer.focus();
     },
     unmount() {
-      if (this.unsub) this.unsub();
+      if (this.listener) store.listeners.delete(this.listener);
       if (this.composer) this.composer.destroy();
-      this.unsub = null;
+      this.listener = null;
+      this.composer = null;
     },
   };
 })();

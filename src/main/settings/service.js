@@ -4,7 +4,8 @@ const { KEY_PROVIDERS, keySource } = require('./keys');
 
 /** Settings operations used by the IPC layer. Never returns a key value. */
 class SettingsService {
-  constructor({ config, secrets, userSettings, llm, providerNames, env = process.env }) {
+  constructor({ config, secrets, userSettings, llm, providerNames, env = process.env, onChange = null }) {
+    this.onChange = onChange;
     this.config = config;
     this.secrets = secrets;
     this.userSettings = userSettings;
@@ -16,6 +17,8 @@ class SettingsService {
   get() {
     return {
       primary: this.config.get('llm.primary'),
+      routing: this.config.get('routing.target'),
+      overlayOpacity: this.config.get('overlay.opacity'),
       secureStorage: this.secrets.available,
       providers: this.providerNames.map((name) => {
         const needsKey = KEY_PROVIDERS.includes(name);
@@ -52,6 +55,7 @@ class SettingsService {
     this.userSettings.set(key, value);
     this.config.set(key, value);
     this.llm.rebuild();
+    if (this.onChange) this.onChange(key, value);
     return this.get();
   }
 }

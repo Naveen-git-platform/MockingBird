@@ -11,11 +11,12 @@
 
   MB.views.settings = {
     async mount(host) {
-      const [settings, info, voiceCfg, appCfg] = await Promise.all([
+      const [settings, info, voiceCfg, appCfg, overlayState] = await Promise.all([
         MB.call('settings:get'),
         MB.call('app:info'),
         MB.call('config:get', 'voice'),
         MB.call('config:get', 'app'),
+        MB.call('overlay:state'),
       ]);
       const root = el('section', { class: 'view' });
       host.append(root);
@@ -77,6 +78,10 @@
         (v) => MB.prefs.set('voiceSource', v)
       );
 
+      const autoAsk = el('input', { type: 'checkbox', 'aria-label': 'Answer automatically after speech' });
+      autoAsk.checked = MB.prefs.get('voiceAutoAsk', false);
+      autoAsk.addEventListener('change', () => MB.prefs.set('voiceAutoAsk', autoAsk.checked));
+
       root.append(el('div', { class: 'view-head' }, el('div', {}, el('h1', { text: 'Settings' }), el('p', { class: 'sub', text: 'AI providers, voice and app details.' }))));
 
       if (!settings) {
@@ -102,8 +107,45 @@
         );
       }
 
+      if (settings) {
+        const routing = MB.select(
+          [{ id: 'chat', label: 'Chat window' }, { id: 'overlay', label: 'Floating overlay' }, { id: 'both', label: 'Both' }],
+          settings.routing,
+          async (v) => {
+            if (await MB.call('settings:set', 'routing.target', v)) MB.toast('Answers will go to: ' + v, 'good');
+          }
+        );
+        const opacity = el('input', { type: 'range', min: '0.3', max: '1', step: '0.05', value: String(settings.overlayOpacity), 'aria-label': 'Overlay opacity' });
+        opacity.addEventListener('change', () => MB.call('settings:set', 'overlay.opacity', Number(opacity.value)));
+        const toggle = el('button', { class: 'btn', type: 'button', text: overlayState && overlayState.visible ? 'Hide overlay' : 'Show overlay' });
+        toggle.addEventListener('click', async () => {
+          const state = await MB.call(overlayState && overlayState.visible ? 'overlay:hide' : 'overlay:show');
+          if (state) {
+            overlayState.visible = state.visible;
+            toggle.textContent = state.visible ? 'Hide overlay' : 'Show overlay';
+          }
+        });
+        const through = el('button', { class: 'btn', type: 'button', text: 'Click-through: off' });
+        through.addEventListener('click', async () => {
+          const next = through.textContent.endsWith('off');
+          const state = await MB.call('overlay:set-click-through', next);
+          if (state) through.textContent = `Click-through: ${state.clickThrough ? 'on' : 'off'}`;
+        });
+        root.append(
+          el(
+            'div',
+            { class: 'card' },
+            el('h3', { text: 'Answers and overlay' }),
+            el('p', { class: 'sub', text: 'Choose where answers appear. The overlay is a small always-on-top window you can drag and resize; it is a normal visible window.' }),
+            el('div', { class: 'row' }, MB.field('Show answers in', routing), MB.field('Overlay opacity', opacity)),
+            el('div', { class: 'row' }, toggle, through),
+            el('p', { class: 'sub', text: 'With click-through on, mouse clicks pass through the overlay. Hiding the overlay turns it off again.' })
+          )
+        );
+      }
+
       root.append(
-        el('div', { class: 'card' }, el('h3', { text: 'Voice input' }), el('p', { class: 'sub', text: voiceCfg && voiceCfg.enabled ? `Speech is transcribed on your computer with Whisper (${voiceCfg.model} model). It needs Python with the openai-whisper package.` : 'Voice input is turned off in the configuration.' }), el('div', { class: 'row' }, MB.field('Capture mode', modeSel), MB.field('Audio source', sourceSel))),
+        el('div', { class: 'card' }, el('h3', { text: 'Voice input' }), el('p', { class: 'sub', text: voiceCfg && voiceCfg.enabled ? `Speech is transcribed on your computer with Whisper (${voiceCfg.model} model). It needs Python with the openai-whisper package.` : 'Voice input is turned off in the configuration.' }), el('div', { class: 'row' }, MB.field('Capture mode', modeSel), MB.field('Audio source', sourceSel)), el('label', { class: 'row' }, autoAsk, el('span', { text: 'Answer automatically when I finish speaking (automatic mode only)' }))),
         el('div', { class: 'card' }, el('h3', { text: 'About' }), el('p', { class: 'sub', text: info ? `${info.name} ${info.version} on ${info.platform}` : '' }), el('p', { class: 'sub', text: appCfg ? `Data folder: ${appCfg.dataDir}` : '' }))
       );
     },

@@ -59,9 +59,13 @@
     { id: 'hist-0004', mode: 'system-design', language: null, difficulty: 'medium', role: '', startedAt: Date.now(), finishedAt: Date.now(), questionsAsked: 3, questionsAnswered: 3, averageScore: 8.1, hintsUsed: 0 },
   ];
 
-  const prefs = { primary: 'gemini', keys: { gemini: 'env' } };
+  const prefs = { primary: 'gemini', keys: { gemini: 'env' }, routing: 'chat', opacity: 0.95 };
+  const overlay = { visible: false, opacity: 0.95, clickThrough: false };
+  let answerSeq = 0;
   const settingsState = () => ({
     primary: prefs.primary,
+    routing: prefs.routing,
+    overlayOpacity: prefs.opacity,
     secureStorage: true,
     providers: ['gemini', 'openai', 'anthropic', 'ollama'].map((name) => ({
       name,
@@ -76,7 +80,7 @@
     'app:info': () => ({ name: 'MockingBird', version: '0.1.0', platform: 'preview' }),
     'config:get': (_k, key) => ({ practice: { mode: 'dsa', language: 'python', style: 'guided' }, interview: { difficulty: 'medium', questionCount: 3, role: '' }, voice: { enabled: true, model: 'small', mode: 'vad' }, app: { dataDir: '~/.MockingBird' } }[key]),
     'settings:get': () => settingsState(),
-    'settings:set': (_k, key, value) => { if (key === 'llm.primary') prefs.primary = value; return settingsState(); },
+    'settings:set': (_k, key, value) => { if (key === 'llm.primary') prefs.primary = value; if (key === 'routing.target') prefs.routing = value; if (key === 'overlay.opacity') prefs.opacity = value; return settingsState(); },
     'settings:set-key': (_k, name) => { prefs.keys[name] = 'stored'; return settingsState(); },
     'settings:delete-key': (_k, name) => { delete prefs.keys[name]; return settingsState(); },
     'llm:status': () => [{ name: 'gemini', model: 'gemini-2.5-flash', configured: true }, { name: 'openai', model: 'gpt-4o-mini', configured: false }],
@@ -85,10 +89,22 @@
       languages: [{ id: 'python', label: 'Python' }, { id: 'javascript', label: 'JavaScript' }, { id: 'java', label: 'Java' }, { id: 'cpp', label: 'C++' }],
       styles: [{ id: 'hints', label: 'Hints only' }, { id: 'guided', label: 'Guided approach' }, { id: 'full', label: 'Full solution' }],
     }),
-    'practice:ask': async () => {
-      await stream('practice:delta', ANSWER);
-      return { text: ANSWER, provider: 'preview', model: 'mock' };
+    'practice:ask': async (_k, raw) => {
+      const toChat = prefs.routing !== 'overlay';
+      const id = ++answerSeq;
+      if (toChat) emit('answer:begin', { id, question: raw.text, images: raw.images || [] });
+      for (const part of ANSWER.match(/[\s\S]{1,14}/g)) {
+        if (toChat) emit('answer:delta', { id, text: part });
+        window.__overlayLog = (window.__overlayLog || []).concat(prefs.routing !== 'chat' ? [part] : []);
+        await sleep(12);
+      }
+      if (toChat) emit('answer:end', { id, text: ANSWER });
+      return { text: ANSWER, provider: 'preview', model: 'mock', routed: { chat: toChat, overlay: prefs.routing !== 'chat' } };
     },
+    'overlay:state': () => ({ ...overlay }),
+    'overlay:show': () => { overlay.visible = true; return { ...overlay }; },
+    'overlay:hide': () => { overlay.visible = false; return { ...overlay }; },
+    'overlay:set-click-through': (_k, on) => { overlay.clickThrough = on; return { ...overlay }; },
     'practice:reset': () => null,
     'interview:options': () => ({
       modes: [{ id: 'dsa', label: 'Data structures & algorithms', needsLanguage: true }, { id: 'system-design', label: 'System design', needsLanguage: false }, { id: 'behavioral', label: 'Behavioral', needsLanguage: false }, { id: 'sql', label: 'SQL & databases', needsLanguage: false }],
@@ -152,6 +168,7 @@
       return fn(null, ...args);
     },
     send() {},
+    __emit: emit,
     on(channel, cb) {
       (listeners[channel] ||= []).push(cb);
       return () => { listeners[channel] = listeners[channel].filter((f) => f !== cb); };

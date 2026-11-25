@@ -9,7 +9,7 @@ const toDataUrl = (img) => (img ? `data:${img.mimeType};base64,${img.data}` : nu
  * Register IPC handlers. `ipcMain` is injected so tests can pass a fake.
  * Capture and voice handlers are registered only when their service is supplied.
  */
-function registerIpc(ipcMain, { config, appInfo, capture, voice, interview, interviewOptions, history, practice, practiceOptions, llm, settings }) {
+function registerIpc(ipcMain, { config, appInfo, capture, voice, interview, interviewOptions, history, practice, practiceOptions, llm, settings, answers, overlay }) {
   ipcMain.handle(C.APP_INFO, () => ({ ...appInfo }));
   ipcMain.handle(C.CONFIG_GET, (_event, keyPath) => {
     if (typeof keyPath !== 'string' || keyPath.length === 0) return config.toJSON();
@@ -56,23 +56,50 @@ function registerIpc(ipcMain, { config, appInfo, capture, voice, interview, inte
 
   if (llm) ipcMain.handle(C.LLM_STATUS, () => llm.describe());
 
+  if (overlay) {
+    ipcMain.handle(C.OVERLAY_STATE, () => overlay.state());
+    ipcMain.handle(C.OVERLAY_SHOW, () => {
+      overlay.show({ focus: true });
+      return overlay.state();
+    });
+    ipcMain.handle(C.OVERLAY_HIDE, () => {
+      overlay.hide();
+      return overlay.state();
+    });
+    ipcMain.handle(C.OVERLAY_TOGGLE, () => {
+      overlay.toggle();
+      return overlay.state();
+    });
+    ipcMain.handle(C.OVERLAY_SET_CLICK_THROUGH, (_event, enabled) => {
+      overlay.setClickThrough(enabled === true);
+      return overlay.state();
+    });
+  }
+
   if (practice) {
     ipcMain.handle(C.PRACTICE_OPTIONS, () => (practiceOptions ? practiceOptions() : {}));
     ipcMain.handle(C.PRACTICE_RESET, () => {
       practice.reset();
       return null;
     });
-    ipcMain.handle(C.PRACTICE_ASK, async (event, raw) => {
+    ipcMain.handle(C.PRACTICE_ASK, async (_event, raw) => {
       const input = normalizeInput(raw);
       const options = {};
       for (const key of ['mode', 'style', 'language']) {
         if (raw && typeof raw[key] === 'string') options[key] = raw[key];
       }
-      return practice.ask(input, options, {
-        onDelta: (text) => {
-          if (!event.sender.isDestroyed?.()) event.sender.send(E.PRACTICE_DELTA, { text });
-        },
+      const { routed } = answers.begin({
+        question: input.text,
+        images: input.images.map((i) => `data:${i.mimeType};base64,${i.data}`),
       });
+      try {
+        const result = await practice.ask(input, options, { onDelta: (text) => answers.delta(text) });
+        answers.end({ text: result.text });
+        return { ...result, routed };
+      } catch (err) {
+        answers.end({ error: err.message });
+        throw err;
+      }
     });
   }
 

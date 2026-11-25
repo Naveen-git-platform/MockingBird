@@ -203,7 +203,7 @@
    * Text box with image attachments (paste, file, screen capture) and voice input.
    * onSubmit({ text, images: dataUrl[] }) may return a promise; the composer locks while it runs.
    */
-  MB.composer = function composer({ placeholder, submitLabel = 'Send', onSubmit, allowEmpty = false }) {
+  MB.composer = function composer({ placeholder, submitLabel = 'Send', onSubmit, allowEmpty = false, autoAsk = false }) {
     const images = [];
     const thumbs = el('div', { class: 'thumbs' });
     const textarea = el('textarea', { placeholder, rows: 2, 'aria-label': placeholder });
@@ -233,17 +233,33 @@
       renderThumbs();
     }
 
-    async function submit() {
-      if (busy) return;
+    let pendingVoice = false;
+
+    async function submit({ fromVoice = false } = {}) {
+      if (busy) {
+        if (fromVoice) pendingVoice = true;
+        return;
+      }
       const text = textarea.value.trim();
       if (!text && images.length === 0 && !allowEmpty) return MB.toast('Type a question or attach an image first', 'error');
-      if (MB.voice.running) await MB.voice.stop();
+      // a spoken question keeps the microphone open so the next one can follow
+      if (MB.voice.running && !fromVoice) await MB.voice.stop();
+      const snapshot = { text, images: [...images] };
+      api.clear();
       api.setBusy(true);
       try {
-        const keep = await onSubmit({ text, images: [...images] });
-        if (keep !== false) api.clear();
+        const keep = await onSubmit(snapshot);
+        if (keep === false) {
+          textarea.value = snapshot.text;
+          images.splice(0, images.length, ...snapshot.images);
+          renderThumbs();
+        }
       } finally {
         api.setBusy(false);
+        if (pendingVoice) {
+          pendingVoice = false;
+          if (textarea.value.trim()) submit({ fromVoice: true });
+        }
       }
     }
 
@@ -274,6 +290,7 @@
       if (MB.voice.running) return MB.voice.stop();
       MB.voice.start((text) => {
         textarea.value = `${textarea.value}${textarea.value && !/\s$/.test(textarea.value) ? ' ' : ''}${text}`;
+        if (autoAsk && MB.prefs.get('voiceAutoAsk', false) && MB.prefs.get('voiceMode', 'vad') === 'vad') submit({ fromVoice: true });
       });
     });
 

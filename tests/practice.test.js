@@ -104,23 +104,24 @@ test('practiceOptions lists modes, languages and styles', () => {
   assert.deepEqual(o.styles.map((s) => s.id), ['hints', 'guided', 'full']);
 });
 
-test('practice and llm IPC: validates input, streams deltas, resets', async () => {
+test('practice and llm IPC: validates input, streams through the sink, resets', async () => {
   const sent = [];
-  const event = { sender: { isDestroyed: () => false, send: (ch, p) => sent.push([ch, p]) } };
+  const answers = { begin: (a) => (sent.push(['begin', a.question]), { id: 1, routed: { chat: true, overlay: false } }), delta: (t) => sent.push(['delta', t]), end: (r) => sent.push(['end', r.text]) };
   const llm = fakeLlm('streamed answer');
   const practice = new PracticeService({ llm });
   const handlers = new Map();
-  registerIpc({ handle: (ch, fn) => handlers.set(ch, fn) }, { config: new Config({ env: {}, homeDir: '/h' }), appInfo: {}, practice, practiceOptions, llm });
+  registerIpc({ handle: (ch, fn) => handlers.set(ch, fn) }, { config: new Config({ env: {}, homeDir: '/h' }), appInfo: {}, practice, practiceOptions, llm, answers });
   const h = (ch) => handlers.get(ch);
 
   assert.equal((await h(C.PRACTICE_OPTIONS)()).modes.length, 5);
   assert.equal((await h(C.LLM_STATUS)())[0].name, 'fake');
-  const res = await h(C.PRACTICE_ASK)(event, { text: ' hi ', mode: 'sql', style: 'full', language: 42, ignored: 'x' });
+  const res = await h(C.PRACTICE_ASK)({}, { text: ' hi ', mode: 'sql', style: 'full', language: 42, ignored: 'x' });
   assert.equal(res.text, 'streamed answer');
-  assert.deepEqual(sent[0], [E.PRACTICE_DELTA, { text: 'streamed answer' }]);
+  assert.deepEqual(res.routed, { chat: true, overlay: false });
+  assert.deepEqual(sent, [['begin', 'hi'], ['delta', 'streamed answer'], ['end', 'streamed answer']]);
   assert.match(llm.calls[0].system, /SQL and databases/);
-  await assert.rejects(h(C.PRACTICE_ASK)(event, { text: '' }), /Type a question/);
-  await assert.rejects(h(C.PRACTICE_ASK)(event, { text: 'x', mode: 'bogus' }), /Unknown mode/);
+  await assert.rejects(h(C.PRACTICE_ASK)({}, { text: '' }), /Type a question/);
+  await assert.rejects(h(C.PRACTICE_ASK)({}, { text: 'x', mode: 'bogus' }), /Unknown mode/);
   assert.equal(await h(C.PRACTICE_RESET)(), null);
   assert.equal(practice.turns, 0);
 });

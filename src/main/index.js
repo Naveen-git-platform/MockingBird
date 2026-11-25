@@ -20,6 +20,8 @@ const { PracticeService } = require('./practice/service');
 const { practiceOptions } = require('./practice/options');
 const { HistoryStore } = require('./history/store');
 const { HistoryService } = require('./history/service');
+const { OverlayManager } = require('./overlay');
+const { AnswerSink } = require('./answers');
 const { Config } = require('../shared/config');
 const { createLogger } = require('../shared/logger');
 const { buildWindowOptions } = require('./window-options');
@@ -38,6 +40,8 @@ const logger = createLogger({
 });
 
 const smokeMode = process.env.MOCKINGBIRD_SMOKE === '1';
+let overlayManager = null;
+let mainWindow = null;
 
 function createMainWindow() {
   const options = buildWindowOptions(config);
@@ -56,22 +60,50 @@ function createMainWindow() {
   win.webContents.on('did-finish-load', async () => {
     logger.info('renderer loaded');
     if (!smokeMode) return;
-    // Smoke test: the UI must finish booting without console errors.
-    let ready = false;
-    for (let i = 0; i < 30 && !ready; i += 1) {
-      ready = await win.webContents
-        .executeJavaScript("document.documentElement.dataset.ready === '1' && !!document.querySelector('#view .view')")
-        .catch(() => false);
-      if (!ready) await new Promise((r) => setTimeout(r, 100));
+    // Smoke test: both windows must finish booting without console errors.
+    const waitReady = async (contents, selector) => {
+      for (let i = 0; i < 30; i += 1) {
+        const ok = await contents
+          .executeJavaScript(`document.documentElement.dataset.ready === '1' && !!document.querySelector('${selector}')`)
+          .catch(() => false);
+        if (ok) return true;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      return false;
+    };
+    const ready = await waitReady(win.webContents, '#view .view');
+    let overlayReady = false;
+    const overlayErrors = [];
+    if (overlayManager) {
+      overlayManager.show();
+      const overlayWin = overlayManager.window;
+      overlayWin.webContents.on('console-message', (event, ...legacy) => {
+        const details = legacy.length ? { level: legacy[0], message: legacy[1] } : event;
+        if (details.level === 'error' || details.level === 3) overlayErrors.push(String(details.message));
+      });
+      overlayReady = await waitReady(overlayWin.webContents, '#answer');
     }
-    logger.info('smoke result', { ready, rendererErrors });
-    app.exit(ready && rendererErrors.length === 0 ? 0 : 1);
+    logger.info('smoke result', { ready, overlayReady, rendererErrors, overlayErrors });
+    app.exit(ready && overlayReady && rendererErrors.length === 0 && overlayErrors.length === 0 ? 0 : 1);
   });
   win.webContents.on('did-fail-load', (_e, code, desc) => {
     logger.error('renderer failed to load', { code, desc });
     if (smokeMode) app.exit(1);
   });
+  win.on('closed', () => {
+    if (mainWindow === win) mainWindow = null;
+    if (overlayManager) overlayManager.destroy();
+  });
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+  mainWindow = win;
+  return win;
+}
+
+function createOverlayWindow(options) {
+  const win = new BrowserWindow(options);
+  win.removeMenu();
+  hardenWebContents(win.webContents, { shell });
+  win.loadFile(path.join(__dirname, '..', 'renderer', 'overlay.html'));
   return win;
 }
 
@@ -112,13 +144,22 @@ if (!app.requestSingleInstanceLock()) {
   }
 
   app.on('before-quit', () => {
+    if (overlayManager) overlayManager.destroy();
     whisperWorker?.close();
   });
 
   app.whenReady().then(() => {
     installMediaHandlers(session.defaultSession, { desktopCapturer });
     const voice = createVoice();
-    if (voice) bindVoiceEvents(voice, () => BrowserWindow.getAllWindows());
+    overlayManager = new OverlayManager({
+      createWindow: createOverlayWindow,
+      opacity: config.get('overlay.opacity'),
+      getWorkArea: () => screen.getPrimaryDisplay().workArea,
+      logger: logger.child('overlay'),
+    });
+    const chatWindows = () => BrowserWindow.getAllWindows().filter((w) => w !== overlayManager.window);
+    const answers = new AnswerSink({ overlay: overlayManager, getChatWindows: chatWindows, getTarget: () => config.get('routing.target') });
+    if (voice) bindVoiceEvents(voice, chatWindows);
     const secrets = new SecretStore({ file: path.join(config.get('app.dataDir'), 'secrets.json'), safeStorage });
     const llm = createLlmService(config, {
       createProvider,
@@ -126,7 +167,16 @@ if (!app.requestSingleInstanceLock()) {
       getApiKey: makeKeyResolver({ secrets }),
       providerNames: listProviderNames(),
     });
-    const settings = new SettingsService({ config, secrets, userSettings, llm, providerNames: listProviderNames() });
+    const settings = new SettingsService({
+      config,
+      secrets,
+      userSettings,
+      llm,
+      providerNames: listProviderNames(),
+      onChange: (key, value) => {
+        if (key === 'overlay.opacity') overlayManager.setOpacity(value);
+      },
+    });
     const history = config.get('history.enabled')
       ? new HistoryService({
           store: new HistoryStore({ dir: path.join(config.get('app.dataDir'), 'history'), logger: logger.child('history') }),
@@ -168,6 +218,8 @@ if (!app.requestSingleInstanceLock()) {
       practiceOptions,
       llm,
       settings,
+      answers,
+      overlay: overlayManager,
     });
     createMainWindow();
     app.on('activate', () => {

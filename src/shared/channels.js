@@ -36,6 +36,11 @@ const INVOKE_CHANNELS = Object.freeze({
   SETTINGS_SET: 'settings:set',
   SETTINGS_SET_KEY: 'settings:set-key',
   SETTINGS_DELETE_KEY: 'settings:delete-key',
+  OVERLAY_STATE: 'overlay:state',
+  OVERLAY_SHOW: 'overlay:show',
+  OVERLAY_HIDE: 'overlay:hide',
+  OVERLAY_TOGGLE: 'overlay:toggle',
+  OVERLAY_SET_CLICK_THROUGH: 'overlay:set-click-through',
 });
 
 // Fire-and-forget messages from renderer to main.
@@ -49,7 +54,10 @@ const EVENT_CHANNELS = Object.freeze({
   VOICE_STATUS: 'voice:status',
   VOICE_ERROR: 'voice:error',
   INTERVIEW_DELTA: 'interview:delta',
-  PRACTICE_DELTA: 'practice:delta',
+  ANSWER_BEGIN: 'answer:begin',
+  ANSWER_DELTA: 'answer:delta',
+  ANSWER_END: 'answer:end',
+  OVERLAY_STATE_CHANGED: 'overlay:state-changed',
 });
 
 const ALLOWED_INVOKE = new Set(Object.values(INVOKE_CHANNELS));
