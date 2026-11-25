@@ -2,12 +2,16 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { ACTIONS, isValidAccelerator } = require('../shortcuts');
+const { resolveMode } = require('../modes/modes');
+const { resolveStyle } = require('../modes/styles');
+const { resolveLanguage } = require('../modes/languages');
 
 /**
  * User-chosen settings that persist between runs (a small JSON file). Only an allowlist of
  * keys is accepted so the renderer cannot write arbitrary configuration.
  */
-const ALLOWED = Object.freeze({
+const ALLOWED = ({
   'llm.primary': (v, ctx) => ctx.providers.includes(v),
   'llm.providers.gemini.model': (v) => modelOk(v),
   'llm.providers.openai.model': (v) => modelOk(v),
@@ -16,6 +20,14 @@ const ALLOWED = Object.freeze({
   'routing.target': (v) => ['chat', 'overlay', 'both'].includes(v),
   'overlay.opacity': (v) => typeof v === 'number' && v >= 0.3 && v <= 1,
   'llm.providers.ollama.baseUrl': (v) => /^https?:\/\/[^\s]+$/.test(v) && v.length < 200,
+});
+
+for (const action of Object.keys(ACTIONS)) ALLOWED[`shortcuts.${action}`] = (v) => isValidAccelerator(v);
+Object.assign(ALLOWED, {
+  'shortcuts.enabled': (v) => typeof v === 'boolean',
+  'practice.mode': (v) => typeof v === 'string' && resolveMode(v) !== null,
+  'practice.style': (v) => typeof v === 'string' && resolveStyle(v) !== null,
+  'practice.language': (v) => typeof v === 'string' && Boolean(resolveLanguage(v)) && resolveLanguage(v).id === v,
 });
 
 function modelOk(v) {
@@ -64,5 +76,7 @@ class UserSettings {
     this.fs.renameSync(tmp, this.file);
   }
 }
+
+Object.freeze(ALLOWED);
 
 module.exports = { UserSettings, ALLOWED };

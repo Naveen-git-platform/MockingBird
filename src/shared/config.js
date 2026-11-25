@@ -2,6 +2,7 @@
 
 const os = require('node:os');
 const path = require('node:path');
+const { DEFAULT_SHORTCUTS } = require('../main/shortcuts');
 
 function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -40,6 +41,10 @@ function defaults(homeDir) {
     },
     routing: {
       target: 'chat',
+    },
+    shortcuts: {
+      enabled: true,
+      ...DEFAULT_SHORTCUTS,
     },
     overlay: {
       opacity: 0.95,

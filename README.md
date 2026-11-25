@@ -56,6 +56,21 @@ Tagged releases build a Windows installer and portable `.exe`, and Linux `.AppIm
 packages (`npm run dist:win`, `npm run dist:linux`). They are not code signed, so Windows
 SmartScreen may ask you to confirm.
 
+## Keyboard shortcuts
+
+These work from anywhere, even when MockingBird is in the background. Change them in **Settings**
+(click a box, press the new keys); a shortcut that another app already owns shows as not active.
+
+| Action | Default |
+|---|---|
+| Capture the screen and answer | `Ctrl+Shift+S` |
+| Start or stop voice input | `Alt+Shift+V` |
+| Show or hide the overlay | `Ctrl+Shift+O` |
+| Overlay click-through on or off | `Ctrl+Shift+I` |
+| Show the MockingBird window | `Ctrl+Shift+M` |
+
+On macOS, `Ctrl` is `Cmd`.
+
 ## Development
 
 ```bash
@@ -73,6 +88,7 @@ src/main/        Electron main process
   modes/         interview types, answer depths, languages, prompt builder
   interview/     mock interview state machine, scoring, reports
   practice/      practice chat service
+  shortcuts.js   global shortcuts, quick-ask.js capture-and-answer
   overlay.js     floating answer window, answers.js routes answers to chat and/or overlay
   capture/       screen, window and area capture, input validation
   voice/         pause detection, Whisper worker client, voice controller

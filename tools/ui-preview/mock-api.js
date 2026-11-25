@@ -59,12 +59,18 @@
     { id: 'hist-0004', mode: 'system-design', language: null, difficulty: 'medium', role: '', startedAt: Date.now(), finishedAt: Date.now(), questionsAsked: 3, questionsAnswered: 3, averageScore: 8.1, hintsUsed: 0 },
   ];
 
-  const prefs = { primary: 'gemini', keys: { gemini: 'env' }, routing: 'chat', opacity: 0.95 };
+  const prefs = { primary: 'gemini', keys: { gemini: 'env' }, routing: 'chat', opacity: 0.95, shortcutsEnabled: true, shortcuts: { captureAsk: 'CommandOrControl+Shift+S', toggleVoice: 'Alt+Shift+V', toggleOverlay: 'CommandOrControl+Shift+O', toggleClickThrough: 'CommandOrControl+Shift+I', showWindow: 'CommandOrControl+Shift+M' } };
+  const DEFAULTS = { captureAsk: 'CommandOrControl+Shift+S', toggleVoice: 'Alt+Shift+V', toggleOverlay: 'CommandOrControl+Shift+O', toggleClickThrough: 'CommandOrControl+Shift+I', showWindow: 'CommandOrControl+Shift+M' };
+  const LABELS = { captureAsk: 'Capture the screen and answer', toggleVoice: 'Start or stop voice input', toggleOverlay: 'Show or hide the overlay', toggleClickThrough: 'Overlay click-through on or off', showWindow: 'Show the MockingBird window' };
+  const shortcutRows = () => Object.keys(DEFAULTS).map((action) => ({ action, label: LABELS[action], accelerator: prefs.shortcuts[action], defaultAccelerator: DEFAULTS[action], ok: prefs.shortcutsEnabled && action !== 'toggleVoice', error: prefs.shortcutsEnabled ? (action === 'toggleVoice' ? 'Another app is already using this shortcut' : null) : 'Shortcuts are turned off' }));
   const overlay = { visible: false, opacity: 0.95, clickThrough: false };
   let answerSeq = 0;
   const settingsState = () => ({
     primary: prefs.primary,
     routing: prefs.routing,
+    practice: { mode: 'dsa', language: 'python', style: 'guided' },
+    shortcutsEnabled: prefs.shortcutsEnabled,
+    shortcuts: shortcutRows(),
     overlayOpacity: prefs.opacity,
     secureStorage: true,
     providers: ['gemini', 'openai', 'anthropic', 'ollama'].map((name) => ({
@@ -80,7 +86,7 @@
     'app:info': () => ({ name: 'MockingBird', version: '0.1.0', platform: 'preview' }),
     'config:get': (_k, key) => ({ practice: { mode: 'dsa', language: 'python', style: 'guided' }, interview: { difficulty: 'medium', questionCount: 3, role: '' }, voice: { enabled: true, model: 'small', mode: 'vad' }, app: { dataDir: '~/.MockingBird' } }[key]),
     'settings:get': () => settingsState(),
-    'settings:set': (_k, key, value) => { if (key === 'llm.primary') prefs.primary = value; if (key === 'routing.target') prefs.routing = value; if (key === 'overlay.opacity') prefs.opacity = value; return settingsState(); },
+    'settings:set': (_k, key, value) => { if (key === 'llm.primary') prefs.primary = value; if (key === 'routing.target') prefs.routing = value; if (key === 'overlay.opacity') prefs.opacity = value; if (key === 'shortcuts.enabled') prefs.shortcutsEnabled = value; if (key.startsWith('shortcuts.') && key !== 'shortcuts.enabled') prefs.shortcuts[key.slice(10)] = value; return settingsState(); },
     'settings:set-key': (_k, name) => { prefs.keys[name] = 'stored'; return settingsState(); },
     'settings:delete-key': (_k, name) => { delete prefs.keys[name]; return settingsState(); },
     'llm:status': () => [{ name: 'gemini', model: 'gemini-2.5-flash', configured: true }, { name: 'openai', model: 'gpt-4o-mini', configured: false }],

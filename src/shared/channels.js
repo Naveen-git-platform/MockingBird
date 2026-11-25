@@ -58,6 +58,7 @@ const EVENT_CHANNELS = Object.freeze({
   ANSWER_DELTA: 'answer:delta',
   ANSWER_END: 'answer:end',
   OVERLAY_STATE_CHANGED: 'overlay:state-changed',
+  SHORTCUT_TOGGLE_VOICE: 'shortcut:toggle-voice',
 });
 
 const ALLOWED_INVOKE = new Set(Object.values(INVOKE_CHANNELS));

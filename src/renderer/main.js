@@ -6,6 +6,12 @@
     MB.toast(MB.cleanError(e.reason), 'error');
   });
 
+  // Global voice shortcut: switch to Practice (where the microphone lives) and toggle it.
+  MB.api.on('shortcut:toggle-voice', () => {
+    if (MB.currentView() !== 'practice') MB.show('practice');
+    setTimeout(() => MB.activeComposer && MB.activeComposer.toggleVoice(), 300);
+  });
+
   const info = await MB.call('app:info');
   if (info) document.getElementById('app-info').textContent = `v${info.version}`;
 

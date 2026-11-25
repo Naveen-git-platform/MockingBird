@@ -1,7 +1,7 @@
 'use strict';
 
 const path = require('node:path');
-const { app, BrowserWindow, ipcMain, desktopCapturer, screen, clipboard, session, dialog, safeStorage, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, desktopCapturer, screen, clipboard, session, dialog, safeStorage, shell, globalShortcut } = require('electron');
 const { CaptureService } = require('./capture/capture-service');
 const { WhisperWorker } = require('./voice/whisper-worker');
 const { VoiceController } = require('./voice/voice-controller');
@@ -22,6 +22,8 @@ const { HistoryStore } = require('./history/store');
 const { HistoryService } = require('./history/service');
 const { OverlayManager } = require('./overlay');
 const { AnswerSink } = require('./answers');
+const { ShortcutManager } = require('./shortcuts');
+const { QuickAsk } = require('./quick-ask');
 const { Config } = require('../shared/config');
 const { createLogger } = require('../shared/logger');
 const { buildWindowOptions } = require('./window-options');
@@ -145,6 +147,7 @@ if (!app.requestSingleInstanceLock()) {
 
   app.on('before-quit', () => {
     if (overlayManager) overlayManager.destroy();
+    globalShortcut.unregisterAll();
     whisperWorker?.close();
   });
 
@@ -167,7 +170,41 @@ if (!app.requestSingleInstanceLock()) {
       getApiKey: makeKeyResolver({ secrets }),
       providerNames: listProviderNames(),
     });
+    const capture = new CaptureService({ desktopCapturer, screen, clipboard, logger: logger.child('capture') });
+    let quickAsk = null;
+    const showMainWindow = ({ focus }) => {
+      const win = mainWindow;
+      if (!win || win.isDestroyed()) return;
+      if (win.isMinimized()) win.restore();
+      if (focus) {
+        win.show();
+        win.focus();
+      } else if (!win.isVisible()) {
+        win.showInactive();
+      }
+    };
+    const shortcuts = new ShortcutManager({
+      globalShortcut,
+      logger: logger.child('shortcuts'),
+      handlers: {
+        captureAsk: async () => {
+          const result = await quickAsk.run();
+          if (result.routed && result.routed.chat) showMainWindow({ focus: false });
+        },
+        toggleVoice: () => {
+          showMainWindow({ focus: false });
+          for (const win of chatWindows()) if (!win.isDestroyed()) win.webContents.send('shortcut:toggle-voice', {});
+        },
+        toggleOverlay: () => overlayManager.toggle(),
+        toggleClickThrough: () => {
+          if (!overlayManager.isVisible()) overlayManager.show();
+          overlayManager.setClickThrough(!overlayManager.clickThrough);
+        },
+        showWindow: () => showMainWindow({ focus: true }),
+      },
+    });
     const settings = new SettingsService({
+      shortcuts,
       config,
       secrets,
       userSettings,
@@ -175,6 +212,7 @@ if (!app.requestSingleInstanceLock()) {
       providerNames: listProviderNames(),
       onChange: (key, value) => {
         if (key === 'overlay.opacity') overlayManager.setOpacity(value);
+        if (key.startsWith('practice.')) practice.defaults[key.slice('practice.'.length)] = value;
       },
     });
     const history = config.get('history.enabled')
@@ -205,11 +243,14 @@ if (!app.requestSingleInstanceLock()) {
         maxHistory: config.get('practice.maxHistory'),
       },
     });
+    quickAsk = new QuickAsk({ capture, practice, answers, logger: logger.child('quick-ask') });
+    settings.applyShortcuts();
+    logger.info('shortcuts registered', Object.fromEntries(Object.entries(shortcuts.status()).map(([k, v]) => [k, v.ok])));
     registerChannelList(ipcMain);
     registerIpc(ipcMain, {
       config,
       appInfo: { name: app.getName(), version: app.getVersion(), platform: process.platform },
-      capture: new CaptureService({ desktopCapturer, screen, clipboard, logger: logger.child('capture') }),
+      capture,
       voice,
       interview,
       interviewOptions,
