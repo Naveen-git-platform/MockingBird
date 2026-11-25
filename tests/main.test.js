@@ -40,7 +40,7 @@ const fakeCapture = {
 test('registerIpc wires every allowed channel', () => {
   const ipc = fakeIpc();
   ipc.on = () => {};
-  registerIpc(ipc, { config, appInfo: { name: 'MockingBird' }, capture: fakeCapture, voice: { state: 'idle', mode: 'vad' } });
+  registerIpc(ipc, { config, appInfo: { name: 'MockingBird' }, capture: fakeCapture, voice: { state: 'idle', mode: 'vad' }, interview: {} });
   for (const ch of ALLOWED_INVOKE) assert.ok(ipc.handlers.has(ch), ch);
 });
 
@@ -134,5 +134,52 @@ test('bindVoiceEvents forwards events to live windows only', () => {
 
 test('send and event allowlists contain exactly the declared channels', () => {
   assert.deepEqual([...ALLOWED_SEND], ['voice:frame']);
-  assert.equal(ALLOWED_EVENTS.size, 3);
+  assert.deepEqual([...ALLOWED_EVENTS].sort(), ['interview:delta', 'voice:error', 'voice:status', 'voice:transcript']);
+});
+
+// ---- interview IPC ----
+test('interview IPC streams deltas to the caller and validates answers', async () => {
+  const sent = [];
+  const event = { sender: { isDestroyed: () => false, send: (ch, p) => sent.push([ch, p]) } };
+  const calls = [];
+  const interview = {
+    start: async (opts, hooks) => { hooks.onDelta('Q'); calls.push(['start', opts]); return { status: 'awaiting_answer' }; },
+    answer: async (input) => { calls.push(['answer', input]); return { evaluation: { score: 1 } }; },
+    hint: async (hooks) => { hooks.onDelta('H'); return { hint: { level: 1 } }; },
+    skip: () => ({ status: 'evaluated' }),
+    next: async (hooks) => { hooks.onDelta('N'); return { status: 'awaiting_answer' }; },
+    finish: async () => ({ status: 'finished' }),
+    state: () => null,
+    discard: () => calls.push(['discard']),
+  };
+  const ipc = fakeIpc();
+  registerIpc(ipc, { config, appInfo: {}, interview, interviewOptions: () => ({ modes: [] }) });
+  const h = (ch) => ipc.handlers.get(ch);
+  assert.deepEqual(await h(INVOKE_CHANNELS.INTERVIEW_OPTIONS)(), { modes: [] });
+  await h(INVOKE_CHANNELS.INTERVIEW_START)(event, { mode: 'sql' });
+  await h(INVOKE_CHANNELS.INTERVIEW_START)(event, 'junk');
+  await h(INVOKE_CHANNELS.INTERVIEW_HINT)(event);
+  await h(INVOKE_CHANNELS.INTERVIEW_NEXT)(event);
+  assert.deepEqual(sent.map(([, p]) => `${p.kind}:${p.text}`), ['question:Q', 'question:Q', 'hint:H', 'question:N']);
+  assert.equal(sent[0][0], EVENT_CHANNELS.INTERVIEW_DELTA);
+  assert.deepEqual(calls[0], ['start', { mode: 'sql' }]);
+  assert.deepEqual(calls[1], ['start', {}]);
+  await h(INVOKE_CHANNELS.INTERVIEW_ANSWER)(event, { text: ' my answer ' });
+  assert.deepEqual(calls[2], ['answer', { text: 'my answer', images: [] }]);
+  assert.throws(() => h(INVOKE_CHANNELS.INTERVIEW_ANSWER)(event, { text: '' }), /Type a question|Type or attach/);
+  assert.deepEqual(h(INVOKE_CHANNELS.INTERVIEW_SKIP)(), { status: 'evaluated' });
+  assert.deepEqual(await h(INVOKE_CHANNELS.INTERVIEW_FINISH)(), { status: 'finished' });
+  assert.equal(h(INVOKE_CHANNELS.INTERVIEW_STATE)(), null);
+  assert.equal(h(INVOKE_CHANNELS.INTERVIEW_DISCARD)(), null);
+  assert.deepEqual(calls.at(-1), ['discard']);
+});
+
+test('interview deltas are not sent to a destroyed window', async () => {
+  const sent = [];
+  const event = { sender: { isDestroyed: () => true, send: (...a) => sent.push(a) } };
+  const interview = { start: async (_o, hooks) => hooks.onDelta('x'), state: () => null };
+  const ipc = fakeIpc();
+  registerIpc(ipc, { config, appInfo: {}, interview });
+  await ipc.handlers.get(INVOKE_CHANNELS.INTERVIEW_START)(event, {});
+  assert.deepEqual(sent, []);
 });

@@ -9,7 +9,7 @@ const toDataUrl = (img) => (img ? `data:${img.mimeType};base64,${img.data}` : nu
  * Register IPC handlers. `ipcMain` is injected so tests can pass a fake.
  * Capture and voice handlers are registered only when their service is supplied.
  */
-function registerIpc(ipcMain, { config, appInfo, capture, voice }) {
+function registerIpc(ipcMain, { config, appInfo, capture, voice, interview, interviewOptions }) {
   ipcMain.handle(C.APP_INFO, () => ({ ...appInfo }));
   ipcMain.handle(C.CONFIG_GET, (_event, keyPath) => {
     if (typeof keyPath !== 'string' || keyPath.length === 0) return config.toJSON();
@@ -44,6 +44,30 @@ function registerIpc(ipcMain, { config, appInfo, capture, voice }) {
       else if (ArrayBuffer.isView(data)) voice.pushFrame(Buffer.from(data.buffer, data.byteOffset, data.byteLength));
     });
   }
+
+  if (interview) registerInterviewIpc(ipcMain, interview, interviewOptions);
+}
+
+function registerInterviewIpc(ipcMain, interview, interviewOptions) {
+  const stream = (event, kind) => ({
+    onDelta: (text) => {
+      if (!event.sender.isDestroyed?.()) event.sender.send(E.INTERVIEW_DELTA, { kind, text });
+    },
+  });
+  ipcMain.handle(C.INTERVIEW_OPTIONS, () => (interviewOptions ? interviewOptions() : {}));
+  ipcMain.handle(C.INTERVIEW_START, (event, options) =>
+    interview.start(options && typeof options === 'object' ? options : {}, stream(event, 'question'))
+  );
+  ipcMain.handle(C.INTERVIEW_ANSWER, (_event, raw) => interview.answer(normalizeInput(raw)));
+  ipcMain.handle(C.INTERVIEW_HINT, (event) => interview.hint(stream(event, 'hint')));
+  ipcMain.handle(C.INTERVIEW_SKIP, () => interview.skip());
+  ipcMain.handle(C.INTERVIEW_NEXT, (event) => interview.next(stream(event, 'question')));
+  ipcMain.handle(C.INTERVIEW_FINISH, () => interview.finish());
+  ipcMain.handle(C.INTERVIEW_STATE, () => interview.state());
+  ipcMain.handle(C.INTERVIEW_DISCARD, () => {
+    interview.discard();
+    return null;
+  });
 }
 
 /** Forward voice controller events to every open window. */

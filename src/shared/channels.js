@@ -13,6 +13,15 @@ const INVOKE_CHANNELS = Object.freeze({
   VOICE_START: 'voice:start',
   VOICE_STOP: 'voice:stop',
   VOICE_STATUS: 'voice:status-get',
+  INTERVIEW_OPTIONS: 'interview:options',
+  INTERVIEW_START: 'interview:start',
+  INTERVIEW_ANSWER: 'interview:answer',
+  INTERVIEW_HINT: 'interview:hint',
+  INTERVIEW_SKIP: 'interview:skip',
+  INTERVIEW_NEXT: 'interview:next',
+  INTERVIEW_FINISH: 'interview:finish',
+  INTERVIEW_STATE: 'interview:state',
+  INTERVIEW_DISCARD: 'interview:discard',
 });
 
 // Fire-and-forget messages from renderer to main.
@@ -25,6 +34,7 @@ const EVENT_CHANNELS = Object.freeze({
   VOICE_TRANSCRIPT: 'voice:transcript',
   VOICE_STATUS: 'voice:status',
   VOICE_ERROR: 'voice:error',
+  INTERVIEW_DELTA: 'interview:delta',
 });
 
 const ALLOWED_INVOKE = new Set(Object.values(INVOKE_CHANNELS));

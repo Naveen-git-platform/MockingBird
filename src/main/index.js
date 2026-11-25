@@ -7,6 +7,10 @@ const { WhisperWorker } = require('./voice/whisper-worker');
 const { VoiceController } = require('./voice/voice-controller');
 const { resolvePython } = require('./voice/python-env');
 const { installMediaHandlers } = require('./media');
+const { createLlmService } = require('./llm/service');
+const { createProvider } = require('./llm/registry');
+const { InterviewManager } = require('./interview/manager');
+const { interviewOptions } = require('./interview/options');
 const { Config } = require('../shared/config');
 const { createLogger } = require('../shared/logger');
 const { buildWindowOptions } = require('./window-options');
@@ -81,11 +85,23 @@ if (!app.requestSingleInstanceLock()) {
     installMediaHandlers(session.defaultSession, { desktopCapturer });
     const voice = createVoice();
     if (voice) bindVoiceEvents(voice, () => BrowserWindow.getAllWindows());
+    const llm = createLlmService(config, { createProvider, logger: logger.child('llm') });
+    const interview = new InterviewManager({
+      llm,
+      defaults: {
+        language: config.get('practice.language'),
+        difficulty: config.get('interview.difficulty'),
+        questionCount: config.get('interview.questionCount'),
+        role: config.get('interview.role'),
+      },
+    });
     registerIpc(ipcMain, {
       config,
       appInfo: { name: app.getName(), version: app.getVersion(), platform: process.platform },
       capture: new CaptureService({ desktopCapturer, screen, clipboard, logger: logger.child('capture') }),
       voice,
+      interview,
+      interviewOptions,
     });
     createMainWindow();
     app.on('activate', () => {

@@ -38,6 +38,11 @@ function defaults(homeDir) {
       style: 'guided',
       maxHistory: 15,
     },
+    interview: {
+      difficulty: 'medium',
+      questionCount: 5,
+      role: '',
+    },
     voice: {
       enabled: true,
       model: 'small',
