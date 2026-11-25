@@ -3,16 +3,40 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; media-src 'self' blob:" />
   <title>MockingBird</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <main class="shell">
-    <h1>MockingBird</h1>
-    <p class="tagline">Your AI interview practice trainer.</p>
-    <p id="info" class="info">Loading…</p>
-  </main>
-  <script src="app.js"></script>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18c0-6 4-10 9-10 1.5 0 2.4.3 3 .6L20 6l-1 4.2c.7 1 1 2 1 3.3 0 3.3-2.7 5.5-6 5.5H4z"/><circle cx="15.5" cy="10.5" r=".6" fill="currentColor"/></svg>
+        </span>
+        <span class="brand-name">MockingBird</span>
+      </div>
+      <nav class="nav" aria-label="Main">
+        <button class="nav-item" data-view="practice" type="button">Practice</button>
+        <button class="nav-item" data-view="interview" type="button">Mock interview</button>
+        <button class="nav-item" data-view="history" type="button">Progress</button>
+        <button class="nav-item" data-view="settings" type="button">Settings</button>
+      </nav>
+      <div class="sidebar-foot" id="app-info">MockingBird</div>
+    </aside>
+    <main class="main" id="view" tabindex="-1"></main>
+  </div>
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <script src="markdown.js"></script>
+  <script src="pcm-convert.js"></script>
+  <script src="audio-capture.js"></script>
+  <script src="core.js"></script>
+  <script src="components.js"></script>
+  <script src="view-practice.js"></script>
+  <script src="view-interview.js"></script>
+  <script src="view-history.js"></script>
+  <script src="view-settings.js"></script>
+  <script src="main.js"></script>
 </body>
 </html>

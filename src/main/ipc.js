@@ -1,6 +1,6 @@
 'use strict';
 
-const { INVOKE_CHANNELS: C, SEND_CHANNELS: S, EVENT_CHANNELS: E } = require('../shared/channels');
+const { INVOKE_CHANNELS: C, SEND_CHANNELS: S, EVENT_CHANNELS: E, ALLOWED_INVOKE, ALLOWED_SEND, ALLOWED_EVENTS } = require('../shared/channels');
 const { normalizeInput } = require('./capture/input');
 
 const toDataUrl = (img) => (img ? `data:${img.mimeType};base64,${img.data}` : null);
@@ -9,7 +9,7 @@ const toDataUrl = (img) => (img ? `data:${img.mimeType};base64,${img.data}` : nu
  * Register IPC handlers. `ipcMain` is injected so tests can pass a fake.
  * Capture and voice handlers are registered only when their service is supplied.
  */
-function registerIpc(ipcMain, { config, appInfo, capture, voice, interview, interviewOptions, history }) {
+function registerIpc(ipcMain, { config, appInfo, capture, voice, interview, interviewOptions, history, practice, practiceOptions, llm }) {
   ipcMain.handle(C.APP_INFO, () => ({ ...appInfo }));
   ipcMain.handle(C.CONFIG_GET, (_event, keyPath) => {
     if (typeof keyPath !== 'string' || keyPath.length === 0) return config.toJSON();
@@ -47,6 +47,28 @@ function registerIpc(ipcMain, { config, appInfo, capture, voice, interview, inte
 
   if (interview) registerInterviewIpc(ipcMain, interview, interviewOptions);
 
+  if (llm) ipcMain.handle(C.LLM_STATUS, () => llm.describe());
+
+  if (practice) {
+    ipcMain.handle(C.PRACTICE_OPTIONS, () => (practiceOptions ? practiceOptions() : {}));
+    ipcMain.handle(C.PRACTICE_RESET, () => {
+      practice.reset();
+      return null;
+    });
+    ipcMain.handle(C.PRACTICE_ASK, async (event, raw) => {
+      const input = normalizeInput(raw);
+      const options = {};
+      for (const key of ['mode', 'style', 'language']) {
+        if (raw && typeof raw[key] === 'string') options[key] = raw[key];
+      }
+      return practice.ask(input, options, {
+        onDelta: (text) => {
+          if (!event.sender.isDestroyed?.()) event.sender.send(E.PRACTICE_DELTA, { text });
+        },
+      });
+    });
+  }
+
   if (history) {
     ipcMain.handle(C.HISTORY_LIST, (_event, opts) => history.list({ limit: opts && Number.isInteger(opts.limit) ? opts.limit : undefined }));
     ipcMain.handle(C.HISTORY_GET, (_event, id) => history.get(id));
@@ -79,6 +101,18 @@ function registerInterviewIpc(ipcMain, interview, interviewOptions) {
   });
 }
 
+/** The preload script is sandboxed and cannot load shared code, so it asks for the allowlist. */
+function registerChannelList(ipcMain) {
+  const lists = {
+    invoke: [...ALLOWED_INVOKE],
+    send: [...ALLOWED_SEND],
+    events: [...ALLOWED_EVENTS],
+  };
+  ipcMain.on('mockingbird:channels', (event) => {
+    event.returnValue = lists;
+  });
+}
+
 /** Forward voice controller events to every open window. */
 function bindVoiceEvents(voice, getWindows) {
   const send = (channel) => (payload) => {
@@ -91,4 +125,4 @@ function bindVoiceEvents(voice, getWindows) {
   voice.on('error', (err) => send(E.VOICE_ERROR)({ message: err.message }));
 }
 
-module.exports = { registerIpc, bindVoiceEvents };
+module.exports = { registerIpc, registerChannelList, bindVoiceEvents };

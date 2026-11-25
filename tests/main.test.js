@@ -40,7 +40,7 @@ const fakeCapture = {
 test('registerIpc wires every allowed channel', () => {
   const ipc = fakeIpc();
   ipc.on = () => {};
-  registerIpc(ipc, { config, appInfo: { name: 'MockingBird' }, capture: fakeCapture, voice: { state: 'idle', mode: 'vad' }, interview: {}, history: {} });
+  registerIpc(ipc, { config, appInfo: { name: 'MockingBird' }, capture: fakeCapture, voice: { state: 'idle', mode: 'vad' }, interview: {}, history: {}, practice: {}, llm: {} });
   for (const ch of ALLOWED_INVOKE) assert.ok(ipc.handlers.has(ch), ch);
 });
 
@@ -134,7 +134,7 @@ test('bindVoiceEvents forwards events to live windows only', () => {
 
 test('send and event allowlists contain exactly the declared channels', () => {
   assert.deepEqual([...ALLOWED_SEND], ['voice:frame']);
-  assert.deepEqual([...ALLOWED_EVENTS].sort(), ['interview:delta', 'voice:error', 'voice:status', 'voice:transcript']);
+  assert.deepEqual([...ALLOWED_EVENTS].sort(), ['interview:delta', 'practice:delta', 'voice:error', 'voice:status', 'voice:transcript']);
 });
 
 // ---- interview IPC ----
@@ -182,4 +182,25 @@ test('interview deltas are not sent to a destroyed window', async () => {
   registerIpc(ipc, { config, appInfo: {}, interview });
   await ipc.handlers.get(INVOKE_CHANNELS.INTERVIEW_START)(event, {});
   assert.deepEqual(sent, []);
+});
+
+// ---- preload / channel list ----
+const { registerChannelList } = require('../src/main/ipc');
+const nodeFs = require('node:fs');
+const nodePath = require('node:path');
+
+test('channel list is served to the sandboxed preload', () => {
+  const listeners = new Map();
+  registerChannelList({ on: (ch, fn) => listeners.set(ch, fn) });
+  const event = {};
+  listeners.get('mockingbird:channels')(event);
+  assert.deepEqual(new Set(event.returnValue.invoke), ALLOWED_INVOKE);
+  assert.deepEqual(event.returnValue.send, ['voice:frame']);
+  assert.ok(event.returnValue.events.includes('interview:delta'));
+});
+
+test('the sandboxed preload never requires local files', () => {
+  const src = nodeFs.readFileSync(nodePath.join(__dirname, '..', 'src', 'preload', 'index.js'), 'utf8');
+  const requires = [...src.matchAll(/require\(['"]([^'"]+)['"]\)/g)].map((m) => m[1]);
+  assert.deepEqual(requires, ['electron']);
 });

@@ -11,12 +11,14 @@ const { createLlmService } = require('./llm/service');
 const { createProvider } = require('./llm/registry');
 const { InterviewManager } = require('./interview/manager');
 const { interviewOptions } = require('./interview/options');
+const { PracticeService } = require('./practice/service');
+const { practiceOptions } = require('./practice/options');
 const { HistoryStore } = require('./history/store');
 const { HistoryService } = require('./history/service');
 const { Config } = require('../shared/config');
 const { createLogger } = require('../shared/logger');
 const { buildWindowOptions } = require('./window-options');
-const { registerIpc, bindVoiceEvents } = require('./ipc');
+const { registerIpc, registerChannelList, bindVoiceEvents } = require('./ipc');
 
 const config = new Config();
 const logger = createLogger({
@@ -31,9 +33,25 @@ function createMainWindow() {
   const win = new BrowserWindow(buildWindowOptions(config));
   win.removeMenu();
   win.once('ready-to-show', () => win.show());
-  win.webContents.on('did-finish-load', () => {
+  const rendererErrors = [];
+  win.webContents.on('console-message', (event, ...legacy) => {
+    // Electron 45 passes one details object; older versions pass (event, level, message).
+    const details = legacy.length ? { level: legacy[0], message: legacy[1] } : event;
+    if (details.level === 'error' || details.level === 3) rendererErrors.push(String(details.message));
+  });
+  win.webContents.on('did-finish-load', async () => {
     logger.info('renderer loaded');
-    if (smokeMode) setTimeout(() => app.quit(), 300);
+    if (!smokeMode) return;
+    // Smoke test: the UI must finish booting without console errors.
+    let ready = false;
+    for (let i = 0; i < 30 && !ready; i += 1) {
+      ready = await win.webContents
+        .executeJavaScript("document.documentElement.dataset.ready === '1' && !!document.querySelector('#view .view')")
+        .catch(() => false);
+      if (!ready) await new Promise((r) => setTimeout(r, 100));
+    }
+    logger.info('smoke result', { ready, rendererErrors });
+    app.exit(ready && rendererErrors.length === 0 ? 0 : 1);
   });
   win.webContents.on('did-fail-load', (_e, code, desc) => {
     logger.error('renderer failed to load', { code, desc });
@@ -107,6 +125,16 @@ if (!app.requestSingleInstanceLock()) {
         role: config.get('interview.role'),
       },
     });
+    const practice = new PracticeService({
+      llm,
+      defaults: {
+        mode: config.get('practice.mode'),
+        language: config.get('practice.language'),
+        style: config.get('practice.style'),
+        maxHistory: config.get('practice.maxHistory'),
+      },
+    });
+    registerChannelList(ipcMain);
     registerIpc(ipcMain, {
       config,
       appInfo: { name: app.getName(), version: app.getVersion(), platform: process.platform },
@@ -115,6 +143,9 @@ if (!app.requestSingleInstanceLock()) {
       interview,
       interviewOptions,
       history,
+      practice,
+      practiceOptions,
+      llm,
     });
     createMainWindow();
     app.on('activate', () => {
