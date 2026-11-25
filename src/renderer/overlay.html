@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:" />
+  <title>MockingBird overlay</title>
+  <link rel="stylesheet" href="tokens.css" />
+  <link rel="stylesheet" href="overlay.css" />
+</head>
+<body>
+  <header class="bar">
+    <span class="title">MockingBird</span>
+    <span class="spacer"></span>
+    <button id="copy" class="tool" type="button" title="Copy the answer">Copy</button>
+    <button id="through" class="tool" type="button" title="Let clicks pass through this window">Click-through</button>
+    <button id="close" class="tool" type="button" title="Hide the overlay" aria-label="Hide the overlay">&times;</button>
+  </header>
+  <main>
+    <p id="question" class="question"></p>
+    <div id="answer" class="answer" aria-live="polite"><p class="hint">Answers appear here.</p></div>
+  </main>
+  <script src="markdown.js"></script>
+  <script src="overlay.js"></script>
+</body>
+</html>

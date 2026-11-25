@@ -13,6 +13,9 @@ hints first, scored feedback, and a progress record.
 - **Any input.** Type, paste an image, pick any screen or window and drag to crop it, or speak.
 - **Voice.** Local Whisper speech-to-text with pause detection or manual start and stop, from the
   microphone or (on Windows) system audio.
+- **Floating overlay.** A small always-on-top answer window you can drag, resize and make translucent.
+  It is an ordinary visible window. Choose whether answers appear in the chat, the overlay or both, and
+  optionally have spoken questions answered automatically.
 - **Your choice of AI.** Google Gemini, OpenAI (and compatible servers), Anthropic Claude, or local
   models through Ollama, with automatic fallback between the ones you have set up.
 - **Progress.** Finished interviews are saved on your computer with averages, a trend, a practice
@@ -70,6 +73,7 @@ src/main/        Electron main process
   modes/         interview types, answer depths, languages, prompt builder
   interview/     mock interview state machine, scoring, reports
   practice/      practice chat service
+  overlay.js     floating answer window, answers.js routes answers to chat and/or overlay
   capture/       screen, window and area capture, input validation
   voice/         pause detection, Whisper worker client, voice controller
   history/       saved interviews, progress stats, Markdown export

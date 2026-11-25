@@ -1,0 +1,33 @@
+/* Design tokens shared by every window. */
+:root {
+  color-scheme: dark;
+  --bg: #0e1014;
+  --surface: #161a21;
+  --surface-2: #1d222b;
+  --border: #272d38;
+  --text: #e7eaf0;
+  --muted: #8d97a8;
+  --accent: #7c9cff;
+  --accent-ink: #0b1020;
+  --good: #4ade80;
+  --warn: #fbbf24;
+  --bad: #f87171;
+  --radius: 12px;
+  --mono: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, monospace;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --bg: #f5f6f9;
+    --surface: #ffffff;
+    --surface-2: #eef0f5;
+    --border: #dde1ea;
+    --text: #1a2030;
+    --muted: #667085;
+    --accent: #3b5bdb;
+    --accent-ink: #ffffff;
+    --good: #16a34a;
+    --warn: #d97706;
+    --bad: #dc2626;
+  }
+}
