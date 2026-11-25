@@ -108,7 +108,6 @@ class WhisperWorker extends EventEmitter {
         this.pending.delete(id);
         reject(new Error(`Whisper request timed out after ${this.requestTimeoutMs}ms`));
       }, this.requestTimeoutMs);
-      timer.unref?.();
       this.pending.set(id, { resolve, reject, timer });
       try {
         this.proc.stdin.write(`${JSON.stringify({ id, ...payload })}\n`);
