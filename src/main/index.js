@@ -1,7 +1,7 @@
 'use strict';
 
 const path = require('node:path');
-const { app, BrowserWindow, ipcMain, desktopCapturer, screen, clipboard, session } = require('electron');
+const { app, BrowserWindow, ipcMain, desktopCapturer, screen, clipboard, session, dialog } = require('electron');
 const { CaptureService } = require('./capture/capture-service');
 const { WhisperWorker } = require('./voice/whisper-worker');
 const { VoiceController } = require('./voice/voice-controller');
@@ -11,6 +11,8 @@ const { createLlmService } = require('./llm/service');
 const { createProvider } = require('./llm/registry');
 const { InterviewManager } = require('./interview/manager');
 const { interviewOptions } = require('./interview/options');
+const { HistoryStore } = require('./history/store');
+const { HistoryService } = require('./history/service');
 const { Config } = require('../shared/config');
 const { createLogger } = require('../shared/logger');
 const { buildWindowOptions } = require('./window-options');
@@ -86,8 +88,18 @@ if (!app.requestSingleInstanceLock()) {
     const voice = createVoice();
     if (voice) bindVoiceEvents(voice, () => BrowserWindow.getAllWindows());
     const llm = createLlmService(config, { createProvider, logger: logger.child('llm') });
+    const history = config.get('history.enabled')
+      ? new HistoryService({
+          store: new HistoryStore({ dir: path.join(config.get('app.dataDir'), 'history'), logger: logger.child('history') }),
+          showSaveDialog: (opts) => {
+            const win = BrowserWindow.getFocusedWindow();
+            return win ? dialog.showSaveDialog(win, opts) : dialog.showSaveDialog(opts);
+          },
+        })
+      : null;
     const interview = new InterviewManager({
       llm,
+      onFinished: history ? (snapshot) => history.save(snapshot) : null,
       defaults: {
         language: config.get('practice.language'),
         difficulty: config.get('interview.difficulty'),
@@ -102,6 +114,7 @@ if (!app.requestSingleInstanceLock()) {
       voice,
       interview,
       interviewOptions,
+      history,
     });
     createMainWindow();
     app.on('activate', () => {
