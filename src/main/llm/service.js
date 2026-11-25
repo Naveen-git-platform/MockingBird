@@ -63,20 +63,35 @@ class LlmService {
 }
 
 /**
- * Build a service from config:
- *   llm.chain = ['gemini', 'openai']
- *   llm.providers.<name> = { model, baseUrl, ... }
+ * Build a service from config. The provider order is `llm.chain` when set, otherwise
+ * `llm.primary` first followed by every other provider; unconfigured ones are skipped at
+ * request time, so the extras only act as fallbacks.
+ * `service.rebuild()` re-reads the config (call it after settings change).
  */
-function createLlmService(config, { createProvider, logger, sleep, fetch } = {}) {
-  const chain = config.get('llm.chain', ['gemini']);
-  const providers = chain.map((name) => createProvider(name, config.get(`llm.providers.${name}`, {}), fetch ? { fetch } : {}));
-  return new LlmService({
-    providers,
+function createLlmService(config, { createProvider, logger, sleep, fetch, getApiKey, providerNames } = {}) {
+  const names = providerNames || ['gemini', 'openai', 'anthropic', 'ollama'];
+  const deps = {};
+  if (fetch) deps.fetch = fetch;
+  if (getApiKey) deps.getApiKey = getApiKey;
+
+  const build = () => {
+    const explicit = config.get('llm.chain');
+    const primary = config.get('llm.primary', names[0]);
+    const chain = Array.isArray(explicit) && explicit.length ? explicit : [primary, ...names.filter((n) => n !== primary)];
+    return chain.map((name) => createProvider(name, config.get(`llm.providers.${name}`, {}), deps));
+  };
+
+  const service = new LlmService({
+    providers: build(),
     maxRetries: config.get('llm.maxRetries', 2),
     baseDelayMs: config.get('llm.baseDelayMs', 400),
     sleep,
     logger,
   });
+  service.rebuild = () => {
+    service.providers = build();
+  };
+  return service;
 }
 
 module.exports = { LlmService, createLlmService };

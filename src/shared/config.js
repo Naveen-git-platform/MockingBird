@@ -66,7 +66,7 @@ function defaults(homeDir) {
       },
     },
     llm: {
-      chain: ['gemini'],
+      primary: 'gemini',
       maxRetries: 2,
       baseDelayMs: 400,
       providers: {

@@ -1,61 +1,110 @@
-/* Settings view: AI provider status, voice preferences, app info. */
+/* Settings view: AI providers and API keys, voice preferences, app info. */
 (function () {
   const MB = window.MB;
   const { el } = MB;
 
-  const KEY_HINTS = { gemini: 'GEMINI_API_KEY', openai: 'OPENAI_API_KEY', anthropic: 'ANTHROPIC_API_KEY' };
+  const LABELS = { gemini: 'Google Gemini', openai: 'OpenAI', anthropic: 'Anthropic Claude', ollama: 'Ollama (local)' };
+  const KEY_BADGE = {
+    stored: { text: 'key saved', cls: 'good' },
+    env: { text: 'key from environment', cls: 'good' },
+  };
 
   MB.views.settings = {
     async mount(host) {
-      const [providers, info, voiceCfg, appCfg] = await Promise.all([
-        MB.call('llm:status'),
+      const [settings, info, voiceCfg, appCfg] = await Promise.all([
+        MB.call('settings:get'),
         MB.call('app:info'),
         MB.call('config:get', 'voice'),
         MB.call('config:get', 'app'),
       ]);
+      const root = el('section', { class: 'view' });
+      host.append(root);
 
-      const providerRows = (providers || []).map((p) =>
-        el(
-          'div',
-          { class: 'row' },
-          el('b', { text: p.name }),
-          el('span', { class: 'sub grow', text: p.model }),
-          el('span', { class: `badge ${p.configured ? 'good' : 'bad'}`, text: p.configured ? 'ready' : KEY_HINTS[p.name] ? `set ${KEY_HINTS[p.name]}` : 'not configured' })
-        )
-      );
+      function providerCard(p) {
+        const badge = p.needsKey ? KEY_BADGE[p.keySource] || { text: 'no key', cls: 'bad' } : { text: 'no key needed', cls: 'good' };
+        const model = el('input', { type: 'text', value: p.model || '', 'aria-label': `${p.name} model`, maxlength: 100 });
+        model.addEventListener('change', async () => {
+          const res = await MB.call('settings:set', `llm.providers.${p.name}.model`, model.value.trim());
+          if (res) MB.toast('Model saved', 'good');
+          else model.value = p.model || '';
+        });
 
-      const mode = MB.select(
+        const rows = [el('div', { class: 'row' }, el('b', { text: LABELS[p.name] || p.name }), el('span', { class: `badge ${badge.cls}`, text: badge.text }), el('span', { class: 'grow' }))];
+        rows.push(el('div', { class: 'row' }, MB.field('Model', model)));
+
+        if (p.needsKey) {
+          const key = el('input', { type: 'password', placeholder: p.keySource === 'stored' ? 'Replace the saved key' : 'Paste your API key', autocomplete: 'off', spellcheck: 'false', 'aria-label': `${p.name} API key` });
+          const save = el('button', { class: 'btn primary', type: 'button', text: 'Save key', disabled: !settings.secureStorage });
+          save.addEventListener('click', async () => {
+            if (!key.value.trim()) return MB.toast('Paste a key first', 'error');
+            save.disabled = true;
+            const res = await MB.call('settings:set-key', p.name, key.value);
+            key.value = '';
+            if (res) {
+              MB.toast('Key saved securely', 'good');
+              return MB.show('settings');
+            }
+            save.disabled = false;
+          });
+          rows.push(el('div', { class: 'row' }, el('div', { class: 'field grow' }, el('span', { text: 'API key' }), key), save));
+          if (p.keySource === 'stored') {
+            rows.push(
+              el('div', { class: 'row' }, el('button', {
+                class: 'btn danger',
+                type: 'button',
+                text: 'Remove saved key',
+                onclick: async () => {
+                  if (!MB.confirm(`Remove the saved ${LABELS[p.name]} key?`)) return;
+                  if (await MB.call('settings:delete-key', p.name)) MB.show('settings');
+                },
+              }))
+            );
+          }
+        } else {
+          rows.push(el('p', { class: 'sub', text: 'Runs on your own computer. Start Ollama and pull a model first (for example: ollama pull llama3.2).' }));
+        }
+        return el('div', { class: 'card' }, ...rows);
+      }
+
+      const modeSel = MB.select(
         [{ id: 'vad', label: 'Automatic (detect pauses)' }, { id: 'manual', label: 'Manual (press to start and stop)' }],
         MB.prefs.get('voiceMode', (voiceCfg && voiceCfg.mode) || 'vad'),
         (v) => MB.prefs.set('voiceMode', v)
       );
-      const source = MB.select(
+      const sourceSel = MB.select(
         [{ id: 'mic', label: 'Microphone' }, { id: 'system', label: 'System audio (Windows)' }],
         MB.prefs.get('voiceSource', 'mic'),
         (v) => MB.prefs.set('voiceSource', v)
       );
 
-      host.append(
-        el(
-          'section',
-          { class: 'view' },
-          el('div', { class: 'view-head' }, el('div', {}, el('h1', { text: 'Settings' }), el('p', { class: 'sub', text: 'AI providers, voice and app details.' }))),
+      root.append(el('div', { class: 'view-head' }, el('div', {}, el('h1', { text: 'Settings' }), el('p', { class: 'sub', text: 'AI providers, voice and app details.' }))));
+
+      if (!settings) {
+        root.append(el('div', { class: 'card', text: 'Settings are not available.' }));
+      } else {
+        const primary = MB.select(
+          settings.providers.map((p) => ({ id: p.name, label: LABELS[p.name] || p.name })),
+          settings.primary,
+          async (v) => {
+            if (await MB.call('settings:set', 'llm.primary', v)) MB.toast('Primary provider changed', 'good');
+          }
+        );
+        root.append(
           el(
             'div',
             { class: 'card' },
-            el('h3', { text: 'AI providers' }),
-            el('p', { class: 'sub', text: 'Providers are tried in this order. Add an API key through the environment variable shown, then restart MockingBird.' }),
-            ...(providerRows.length ? providerRows : [el('p', { class: 'sub', text: 'No providers loaded.' })])
+            el('h3', { text: 'AI provider' }),
+            el('p', { class: 'sub', text: 'MockingBird uses your primary provider first. If it fails or has no key, it falls back to the others that are set up.' }),
+            el('div', { class: 'row' }, MB.field('Primary provider', primary)),
+            settings.secureStorage ? null : el('p', { class: 'msg error', text: 'Secure storage is not available on this system, so keys cannot be saved here. Set them as environment variables instead (GEMINI_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY).' })
           ),
-          el(
-            'div',
-            { class: 'card' },
-            el('h3', { text: 'Voice input' }),
-            el('p', { class: 'sub', text: voiceCfg && voiceCfg.enabled ? `Speech is transcribed locally with Whisper (${voiceCfg.model} model).` : 'Voice input is turned off in the configuration.' }),
-            el('div', { class: 'row' }, MB.field('Capture mode', mode), MB.field('Audio source', source))
-          ),
-          el('div', { class: 'card' }, el('h3', { text: 'About' }), el('p', { class: 'sub', text: info ? `${info.name} ${info.version} on ${info.platform}` : '' }), el('p', { class: 'sub', text: appCfg ? `Data folder: ${appCfg.dataDir}` : '' }))
-        )
+          ...settings.providers.map(providerCard)
+        );
+      }
+
+      root.append(
+        el('div', { class: 'card' }, el('h3', { text: 'Voice input' }), el('p', { class: 'sub', text: voiceCfg && voiceCfg.enabled ? `Speech is transcribed on your computer with Whisper (${voiceCfg.model} model). It needs Python with the openai-whisper package.` : 'Voice input is turned off in the configuration.' }), el('div', { class: 'row' }, MB.field('Capture mode', modeSel), MB.field('Audio source', sourceSel))),
+        el('div', { class: 'card' }, el('h3', { text: 'About' }), el('p', { class: 'sub', text: info ? `${info.name} ${info.version} on ${info.platform}` : '' }), el('p', { class: 'sub', text: appCfg ? `Data folder: ${appCfg.dataDir}` : '' }))
       );
     },
   };

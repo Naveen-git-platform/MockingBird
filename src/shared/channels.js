@@ -32,6 +32,10 @@ const INVOKE_CHANNELS = Object.freeze({
   PRACTICE_RESET: 'practice:reset',
   PRACTICE_OPTIONS: 'practice:options',
   LLM_STATUS: 'llm:status',
+  SETTINGS_GET: 'settings:get',
+  SETTINGS_SET: 'settings:set',
+  SETTINGS_SET_KEY: 'settings:set-key',
+  SETTINGS_DELETE_KEY: 'settings:delete-key',
 });
 
 // Fire-and-forget messages from renderer to main.
