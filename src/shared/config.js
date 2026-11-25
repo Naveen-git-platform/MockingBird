@@ -32,6 +32,12 @@ function defaults(homeDir) {
       level: 'info',
       toFile: true,
     },
+    practice: {
+      mode: 'dsa',
+      language: 'python',
+      style: 'guided',
+      maxHistory: 15,
+    },
     llm: {
       chain: ['gemini'],
       maxRetries: 2,
