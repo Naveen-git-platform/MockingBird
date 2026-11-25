@@ -66,16 +66,19 @@
       const modeSel = MB.select(options.modes, prefs.mode, (v) => {
         prefs.mode = v;
         MB.prefs.set('practiceMode', v);
+        MB.call('settings:set', 'practice.mode', v);
         syncLanguage();
       });
       const langSel = MB.select(options.languages, prefs.language, (v) => {
         prefs.language = v;
         MB.prefs.set('practiceLanguage', v);
+        MB.call('settings:set', 'practice.language', v);
       });
       const langField = MB.field('Language', langSel);
       const styleSel = MB.select(options.styles, prefs.style, (v) => {
         prefs.style = v;
         MB.prefs.set('practiceStyle', v);
+        MB.call('settings:set', 'practice.style', v);
       });
       function syncLanguage() {
         const mode = options.modes.find((m) => m.id === prefs.mode);
@@ -146,6 +149,7 @@
         },
       });
       this.composer = composer;
+      MB.activeComposer = composer;
 
       host.append(
         el(

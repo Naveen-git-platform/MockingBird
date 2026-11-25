@@ -210,6 +210,7 @@
     const fileInput = el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', hidden: true });
     const send = el('button', { class: 'btn primary', type: 'button', text: submitLabel });
     const mic = el('button', { class: 'btn icon', type: 'button', title: 'Speak your question' }, icon('mic', 'Voice'));
+    const toggleVoice = () => mic.click();
     let busy = false;
 
     function renderThumbs() {
@@ -334,8 +335,10 @@
       setPlaceholder(text) {
         textarea.placeholder = text;
       },
+      toggleVoice,
       destroy() {
         MB.voice.listeners.delete(syncMic);
+        if (MB.activeComposer === api) MB.activeComposer = null;
       },
     };
     return api;

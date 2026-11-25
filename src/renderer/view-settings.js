@@ -67,6 +67,37 @@
         return el('div', { class: 'card' }, ...rows);
       }
 
+      function shortcutsCard() {
+        const isMac = /Mac/i.test(navigator.platform);
+        const master = el('input', { type: 'checkbox', 'aria-label': 'Enable global shortcuts' });
+        master.checked = settings.shortcutsEnabled !== false;
+        master.addEventListener('change', async () => {
+          if (await MB.call('settings:set', 'shortcuts.enabled', master.checked)) MB.show('settings');
+        });
+        const rows = settings.shortcuts.map((row) => {
+          const input = el('input', { type: 'text', value: window.Accelerator.display(row.accelerator, isMac), readonly: true, 'aria-label': `${row.label} shortcut`, title: 'Click, then press the new key combination' });
+          input.addEventListener('keydown', async (e) => {
+            if (e.key === 'Tab' && !e.ctrlKey && !e.altKey && !e.metaKey) return;
+            e.preventDefault();
+            const accelerator = window.Accelerator.fromEvent(e, isMac);
+            if (!accelerator) return;
+            if (await MB.call('settings:set', `shortcuts.${row.action}`, accelerator)) MB.show('settings');
+          });
+          const status = row.ok ? el('span', { class: 'badge good', text: 'active' }) : el('span', { class: 'badge bad', title: row.error || '', text: row.error ? 'not active' : 'off' });
+          const reset = el('button', {
+            class: 'btn',
+            type: 'button',
+            text: 'Reset',
+            disabled: row.accelerator === row.defaultAccelerator,
+            onclick: async () => {
+              if (await MB.call('settings:set', `shortcuts.${row.action}`, row.defaultAccelerator)) MB.show('settings');
+            },
+          });
+          return el('div', { class: 'row' }, el('span', { class: 'grow', text: row.label }), input, status, reset, row.error && settings.shortcutsEnabled !== false ? el('p', { class: 'sub', text: row.error }) : null);
+        });
+        return el('div', { class: 'card' }, el('h3', { text: 'Keyboard shortcuts' }), el('p', { class: 'sub', text: 'Work from anywhere, even when MockingBird is in the background. Click a box and press the new combination.' }), el('label', { class: 'row' }, master, el('span', { text: 'Enable global shortcuts' })), ...rows);
+      }
+
       const modeSel = MB.select(
         [{ id: 'vad', label: 'Automatic (detect pauses)' }, { id: 'manual', label: 'Manual (press to start and stop)' }],
         MB.prefs.get('voiceMode', (voiceCfg && voiceCfg.mode) || 'vad'),
@@ -143,6 +174,8 @@
           )
         );
       }
+
+      if (settings && settings.shortcuts) root.append(shortcutsCard());
 
       root.append(
         el('div', { class: 'card' }, el('h3', { text: 'Voice input' }), el('p', { class: 'sub', text: voiceCfg && voiceCfg.enabled ? `Speech is transcribed on your computer with Whisper (${voiceCfg.model} model). It needs Python with the openai-whisper package.` : 'Voice input is turned off in the configuration.' }), el('div', { class: 'row' }, MB.field('Capture mode', modeSel), MB.field('Audio source', sourceSel)), el('label', { class: 'row' }, autoAsk, el('span', { text: 'Answer automatically when I finish speaking (automatic mode only)' }))),
