@@ -1,7 +1,8 @@
 'use strict';
 
 const path = require('node:path');
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, desktopCapturer, screen, clipboard } = require('electron');
+const { CaptureService } = require('./capture/capture-service');
 const { Config } = require('../shared/config');
 const { createLogger } = require('../shared/logger');
 const { buildWindowOptions } = require('./window-options');
@@ -47,6 +48,7 @@ if (!app.requestSingleInstanceLock()) {
     registerIpc(ipcMain, {
       config,
       appInfo: { name: app.getName(), version: app.getVersion(), platform: process.platform },
+      capture: new CaptureService({ desktopCapturer, screen, clipboard, logger: logger.child('capture') }),
     });
     createMainWindow();
     app.on('activate', () => {
