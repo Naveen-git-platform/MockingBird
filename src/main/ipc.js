@@ -1,6 +1,6 @@
 'use strict';
 
-const { INVOKE_CHANNELS: C, SEND_CHANNELS: S, EVENT_CHANNELS: E } = require('../shared/channels');
+const { INVOKE_CHANNELS: C, SEND_CHANNELS: S, EVENT_CHANNELS: E, ALLOWED_INVOKE, ALLOWED_SEND, ALLOWED_EVENTS } = require('../shared/channels');
 const { normalizeInput } = require('./capture/input');
 
 const toDataUrl = (img) => (img ? `data:${img.mimeType};base64,${img.data}` : null);
@@ -101,6 +101,18 @@ function registerInterviewIpc(ipcMain, interview, interviewOptions) {
   });
 }
 
+/** The preload script is sandboxed and cannot load shared code, so it asks for the allowlist. */
+function registerChannelList(ipcMain) {
+  const lists = {
+    invoke: [...ALLOWED_INVOKE],
+    send: [...ALLOWED_SEND],
+    events: [...ALLOWED_EVENTS],
+  };
+  ipcMain.on('mockingbird:channels', (event) => {
+    event.returnValue = lists;
+  });
+}
+
 /** Forward voice controller events to every open window. */
 function bindVoiceEvents(voice, getWindows) {
   const send = (channel) => (payload) => {
@@ -113,4 +125,4 @@ function bindVoiceEvents(voice, getWindows) {
   voice.on('error', (err) => send(E.VOICE_ERROR)({ message: err.message }));
 }
 
-module.exports = { registerIpc, bindVoiceEvents };
+module.exports = { registerIpc, registerChannelList, bindVoiceEvents };

@@ -1,22 +1,28 @@
 'use strict';
 
+// Sandboxed preload scripts can only require 'electron' (and a few built-ins), not local
+// files. The channel allowlist therefore comes from the main process, which owns it.
 const { contextBridge, ipcRenderer } = require('electron');
-const { ALLOWED_INVOKE, ALLOWED_SEND, ALLOWED_EVENTS } = require('../shared/channels');
+
+const lists = ipcRenderer.sendSync('mockingbird:channels');
+const allowedInvoke = new Set(lists.invoke);
+const allowedSend = new Set(lists.send);
+const allowedEvents = new Set(lists.events);
 
 contextBridge.exposeInMainWorld('mockingbird', {
   invoke(channel, ...args) {
-    if (!ALLOWED_INVOKE.has(channel)) {
+    if (!allowedInvoke.has(channel)) {
       return Promise.reject(new Error(`Blocked IPC channel: ${channel}`));
     }
     return ipcRenderer.invoke(channel, ...args);
   },
   send(channel, ...args) {
-    if (!ALLOWED_SEND.has(channel)) throw new Error(`Blocked IPC channel: ${channel}`);
+    if (!allowedSend.has(channel)) throw new Error(`Blocked IPC channel: ${channel}`);
     ipcRenderer.send(channel, ...args);
   },
   /** Subscribe to a main-process event. Returns an unsubscribe function. */
   on(channel, callback) {
-    if (!ALLOWED_EVENTS.has(channel)) throw new Error(`Blocked IPC channel: ${channel}`);
+    if (!allowedEvents.has(channel)) throw new Error(`Blocked IPC channel: ${channel}`);
     const listener = (_event, payload) => callback(payload);
     ipcRenderer.on(channel, listener);
     return () => ipcRenderer.removeListener(channel, listener);
