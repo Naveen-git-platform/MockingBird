@@ -40,7 +40,10 @@ const logger = createLogger({
 const smokeMode = process.env.MOCKINGBIRD_SMOKE === '1';
 
 function createMainWindow() {
-  const win = new BrowserWindow(buildWindowOptions(config));
+  const options = buildWindowOptions(config);
+  // Packaged builds embed the icon in the executable; in development use the source PNG.
+  if (!app.isPackaged) options.icon = path.join(__dirname, '..', '..', 'build', 'icon.png');
+  const win = new BrowserWindow(options);
   win.removeMenu();
   hardenWebContents(win.webContents, { shell });
   win.once('ready-to-show', () => win.show());
