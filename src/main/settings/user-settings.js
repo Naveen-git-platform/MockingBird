@@ -20,6 +20,8 @@ const ALLOWED = ({
   'llm.providers.ollama.model': (v) => modelOk(v),
   'routing.target': (v) => ['chat', 'overlay', 'both'].includes(v),
   'overlay.opacity': (v) => typeof v === 'number' && v >= 0.3 && v <= 1,
+  'overlay.style': (v) => ['solid', 'glass', 'acrylic'].includes(v),
+  'overlay.glass': (v) => typeof v === 'number' && v >= 0.05 && v <= 0.95,
   'llm.providers.ollama.baseUrl': (v) => /^https?:\/\/[^\s]+$/.test(v) && v.length < 200,
 });
 

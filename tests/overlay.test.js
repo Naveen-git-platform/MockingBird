@@ -136,10 +136,10 @@ test('click-through forwards mouse moves and is switched off when the overlay hi
 test('state reports visibility, opacity and click-through, and changes are pushed to the window', () => {
   const { m, created } = manager({ opacity: 0.8 });
   m.show();
-  assert.deepEqual(m.state(), { visible: true, opacity: 0.8, clickThrough: false });
+  assert.deepEqual(m.state(), { visible: true, opacity: 0.8, clickThrough: false, style: 'solid', glass: 0.35 });
   const last = created[0].sent.at(-1);
   assert.equal(last[0], E.OVERLAY_STATE_CHANGED);
-  assert.deepEqual(last[1], { visible: true, opacity: 0.8, clickThrough: false });
+  assert.deepEqual(last[1], { visible: true, opacity: 0.8, clickThrough: false, style: 'solid', glass: 0.35 });
 });
 
 test('operations before the window exists are safe', () => {
@@ -282,7 +282,7 @@ test('routing and overlay opacity are allowlisted, validated and applied live', 
     onChange: (k, v) => applied.push([k, v]),
   });
   assert.equal(svc.get().routing, 'chat');
-  assert.equal(svc.get().overlayOpacity, 0.95);
+  assert.equal(svc.get().overlayOpacity, 1);
   assert.equal(svc.setSetting('routing.target', 'both').routing, 'both');
   assert.equal(svc.setSetting('overlay.opacity', 0.5).overlayOpacity, 0.5);
   assert.deepEqual(applied, [['routing.target', 'both'], ['overlay.opacity', 0.5]]);

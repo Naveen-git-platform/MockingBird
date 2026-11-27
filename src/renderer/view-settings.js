@@ -148,6 +148,17 @@
         );
         const opacity = el('input', { type: 'range', min: '0.3', max: '1', step: '0.05', value: String(settings.overlayOpacity), 'aria-label': 'Overlay opacity' });
         opacity.addEventListener('change', () => MB.call('settings:set', 'overlay.opacity', Number(opacity.value)));
+        const styles = settings.overlayStyles || [];
+        const styleSel = MB.select(
+          styles.map((x) => ({ id: x.id, label: x.available ? x.label : `${x.label} (not available here)` })),
+          settings.overlayStyle,
+          async (v) => {
+            if (await MB.call('settings:set', 'overlay.style', v)) MB.toast('Overlay style changed', 'good');
+          }
+        );
+        styles.forEach((x, i) => { if (!x.available) styleSel.options[i].disabled = true; });
+        const glass = el('input', { type: 'range', min: '0.05', max: '0.95', step: '0.05', value: String(settings.overlayGlass), 'aria-label': 'Overlay background tint' });
+        glass.addEventListener('change', () => MB.call('settings:set', 'overlay.glass', Number(glass.value)));
         const toggle = el('button', { class: 'btn', type: 'button', text: overlayState && overlayState.visible ? 'Hide overlay' : 'Show overlay' });
         toggle.addEventListener('click', async () => {
           const state = await MB.call(overlayState && overlayState.visible ? 'overlay:hide' : 'overlay:show');
@@ -167,8 +178,9 @@
             'div',
             { class: 'card' },
             el('h3', { text: 'Answers and overlay' }),
-            el('p', { class: 'sub', text: 'Choose where answers appear. The overlay is a small always-on-top window you can drag and resize; it is a normal visible window.' }),
-            el('div', { class: 'row' }, MB.field('Show answers in', routing), MB.field('Overlay opacity', opacity)),
+            el('p', { class: 'sub', text: 'Choose where answers appear. The overlay is a small always-on-top window you can drag and resize. Make it see-through to keep working on the screen behind it, or frosted for a blurred-glass look.' }),
+            el('div', { class: 'row' }, MB.field('Show answers in', routing), MB.field('Window style', styleSel)),
+            el('div', { class: 'row' }, MB.field('Background tint (left = more see-through)', glass), MB.field('Whole-window opacity', opacity)),
             el('div', { class: 'row' }, toggle, through),
             el('p', { class: 'sub', text: 'With click-through on, mouse clicks pass through the overlay. Hiding the overlay turns it off again.' })
           )

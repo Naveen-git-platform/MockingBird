@@ -13,8 +13,10 @@ hints first, scored feedback, and a progress record.
 - **Any input.** Type, paste an image, pick any screen or window and drag to crop it, or speak.
 - **Voice.** Local Whisper speech-to-text with pause detection or manual start and stop, from the
   microphone or (on Windows) system audio.
-- **Floating overlay.** A small always-on-top answer window you can drag, resize and make translucent.
-  It is an ordinary visible window. Choose whether answers appear in the chat, the overlay or both, and
+- **Floating overlay.** A small always-on-top answer window you can drag and resize. Make it
+  **see-through** (the screen behind shows through while text stays readable), **frosted** (blurred
+  acrylic glass, Windows 11 and macOS), or solid, and slide the background tint to taste so you can keep
+  working underneath. It is an ordinary visible window. Choose whether answers appear in the chat, the overlay or both, and
   optionally have spoken questions answered automatically.
 - **Your choice of AI.** Google Gemini, OpenAI (and compatible servers), Anthropic Claude, or local
   models through Ollama, with automatic fallback between the ones you have set up.

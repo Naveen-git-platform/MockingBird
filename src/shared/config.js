@@ -50,7 +50,9 @@ function defaults(homeDir) {
       ...DEFAULT_SHORTCUTS,
     },
     overlay: {
-      opacity: 0.95,
+      opacity: 1,
+      style: 'glass',
+      glass: 0.35,
     },
     history: {
       enabled: true,

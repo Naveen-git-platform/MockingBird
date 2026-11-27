@@ -60,7 +60,7 @@
   ];
 
   const THEME_LIST = [['system', 'Match my system', '#0e1014', '#161a21', '#7c9cff'], ['dark', 'Midnight', '#0e1014', '#161a21', '#7c9cff'], ['light', 'Daylight', '#f5f6f9', '#ffffff', '#3b5bdb'], ['ocean', 'Ocean', '#0a1620', '#0f2231', '#38bdf8'], ['forest', 'Forest', '#0c130f', '#121c16', '#4ade80'], ['sunset', 'Sunset', '#150f12', '#1f1519', '#fb923c'], ['paper', 'Paper', '#f6f1e7', '#fffdf8', '#b45309']].map(([id, label, a, b, c]) => ({ id, label, scheme: 'dark', swatch: [a, b, c] }));
-  const prefs = { theme: 'system', primary: 'gemini', keys: { gemini: 'env' }, routing: 'chat', opacity: 0.95, shortcutsEnabled: true, shortcuts: { captureAsk: 'CommandOrControl+Shift+S', toggleVoice: 'Alt+Shift+V', toggleOverlay: 'CommandOrControl+Shift+O', toggleClickThrough: 'CommandOrControl+Shift+I', showWindow: 'CommandOrControl+Shift+M' } };
+  const prefs = { theme: 'system', primary: 'gemini', keys: { gemini: 'env' }, routing: 'chat', opacity: 1, overlayStyle: 'glass', overlayGlass: 0.35, shortcutsEnabled: true, shortcuts: { captureAsk: 'CommandOrControl+Shift+S', toggleVoice: 'Alt+Shift+V', toggleOverlay: 'CommandOrControl+Shift+O', toggleClickThrough: 'CommandOrControl+Shift+I', showWindow: 'CommandOrControl+Shift+M' } };
   const DEFAULTS = { captureAsk: 'CommandOrControl+Shift+S', toggleVoice: 'Alt+Shift+V', toggleOverlay: 'CommandOrControl+Shift+O', toggleClickThrough: 'CommandOrControl+Shift+I', showWindow: 'CommandOrControl+Shift+M' };
   const LABELS = { captureAsk: 'Capture the screen and answer', toggleVoice: 'Start or stop voice input', toggleOverlay: 'Show or hide the overlay', toggleClickThrough: 'Overlay click-through on or off', showWindow: 'Show the MockingBird window' };
   const shortcutRows = () => Object.keys(DEFAULTS).map((action) => ({ action, label: LABELS[action], accelerator: prefs.shortcuts[action], defaultAccelerator: DEFAULTS[action], ok: prefs.shortcutsEnabled && action !== 'toggleVoice', error: prefs.shortcutsEnabled ? (action === 'toggleVoice' ? 'Another app is already using this shortcut' : null) : 'Shortcuts are turned off' }));
@@ -75,6 +75,9 @@
     shortcutsEnabled: prefs.shortcutsEnabled,
     shortcuts: shortcutRows(),
     overlayOpacity: prefs.opacity,
+    overlayStyle: prefs.overlayStyle,
+    overlayGlass: prefs.overlayGlass,
+    overlayStyles: [{ id: 'solid', label: 'Solid', available: true }, { id: 'glass', label: 'Glass (see-through)', available: true }, { id: 'acrylic', label: 'Frosted (acrylic)', available: true }],
     secureStorage: true,
     providers: ['gemini', 'openai', 'anthropic', 'ollama'].map((name) => ({
       name,
@@ -89,7 +92,7 @@
     'app:info': () => ({ name: 'MockingBird', version: '0.1.0', platform: 'preview' }),
     'config:get': (_k, key) => ({ 'ui.theme': prefs.theme, practice: { mode: 'dsa', language: 'python', style: 'guided' }, interview: { difficulty: 'medium', questionCount: 3, role: '' }, voice: { enabled: true, model: 'small', mode: 'vad' }, app: { dataDir: '~/.MockingBird' } }[key]),
     'settings:get': () => settingsState(),
-    'settings:set': (_k, key, value) => { if (key === 'llm.primary') prefs.primary = value; if (key === 'routing.target') prefs.routing = value; if (key === 'ui.theme') { prefs.theme = value; emit('theme:changed', { theme: value }); } if (key === 'overlay.opacity') prefs.opacity = value; if (key === 'shortcuts.enabled') prefs.shortcutsEnabled = value; if (key.startsWith('shortcuts.') && key !== 'shortcuts.enabled') prefs.shortcuts[key.slice(10)] = value; return settingsState(); },
+    'settings:set': (_k, key, value) => { if (key === 'llm.primary') prefs.primary = value; if (key === 'routing.target') prefs.routing = value; if (key === 'ui.theme') { prefs.theme = value; emit('theme:changed', { theme: value }); } if (key === 'overlay.opacity') prefs.opacity = value; if (key === 'overlay.style') { prefs.overlayStyle = value; emit('overlay:state-changed', { visible: true, opacity: 1, clickThrough: false, style: value, glass: prefs.overlayGlass }); } if (key === 'overlay.glass') { prefs.overlayGlass = value; emit('overlay:state-changed', { visible: true, opacity: 1, clickThrough: false, style: prefs.overlayStyle, glass: value }); } if (key === 'shortcuts.enabled') prefs.shortcutsEnabled = value; if (key.startsWith('shortcuts.') && key !== 'shortcuts.enabled') prefs.shortcuts[key.slice(10)] = value; return settingsState(); },
     'settings:set-key': (_k, name) => { prefs.keys[name] = 'stored'; return settingsState(); },
     'settings:delete-key': (_k, name) => { delete prefs.keys[name]; return settingsState(); },
     'llm:status': () => [{ name: 'gemini', model: 'gemini-2.5-flash', configured: true }, { name: 'openai', model: 'gpt-4o-mini', configured: false }],
@@ -110,7 +113,8 @@
       if (toChat) emit('answer:end', { id, text: ANSWER });
       return { text: ANSWER, provider: 'preview', model: 'mock', routed: { chat: toChat, overlay: prefs.routing !== 'chat' } };
     },
-    'overlay:state': () => ({ ...overlay }),
+    'overlay:state': () => ({ ...overlay, style: prefs.overlayStyle, glass: prefs.overlayGlass }),
+    'overlay:resize': (_k, size) => size,
     'overlay:show': () => { overlay.visible = true; return { ...overlay }; },
     'overlay:hide': () => { overlay.visible = false; return { ...overlay }; },
     'overlay:set-click-through': (_k, on) => { overlay.clickThrough = on; return { ...overlay }; },
