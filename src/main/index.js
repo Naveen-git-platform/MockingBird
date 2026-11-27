@@ -157,6 +157,9 @@ if (!app.requestSingleInstanceLock()) {
     overlayManager = new OverlayManager({
       createWindow: createOverlayWindow,
       opacity: config.get('overlay.opacity'),
+      style: config.get('overlay.style'),
+      glass: config.get('overlay.glass'),
+      release: process.getSystemVersion(),
       getWorkArea: () => screen.getPrimaryDisplay().workArea,
       logger: logger.child('overlay'),
     });
@@ -205,6 +208,7 @@ if (!app.requestSingleInstanceLock()) {
     });
     const settings = new SettingsService({
       shortcuts,
+      extras: () => ({ overlayStyles: overlayManager.availableStyles() }),
       config,
       secrets,
       userSettings,
@@ -212,6 +216,8 @@ if (!app.requestSingleInstanceLock()) {
       providerNames: listProviderNames(),
       onChange: (key, value) => {
         if (key === 'overlay.opacity') overlayManager.setOpacity(value);
+        if (key === 'overlay.style') overlayManager.setStyle(value);
+        if (key === 'overlay.glass') overlayManager.setGlass(value);
         if (key === 'ui.theme') {
           for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) win.webContents.send('theme:changed', { theme: value });
         }

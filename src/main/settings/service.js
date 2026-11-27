@@ -6,7 +6,8 @@ const { themeList } = require('../../shared/themes');
 
 /** Settings operations used by the IPC layer. Never returns a key value. */
 class SettingsService {
-  constructor({ config, secrets, userSettings, llm, providerNames, env = process.env, onChange = null, shortcuts = null }) {
+  constructor({ config, secrets, userSettings, llm, providerNames, env = process.env, onChange = null, shortcuts = null, extras = null }) {
+    this.extras = extras;
     this.onChange = onChange;
     this.shortcuts = shortcuts;
     this.config = config;
@@ -31,6 +32,9 @@ class SettingsService {
       shortcutsEnabled: this.config.get('shortcuts.enabled'),
       shortcuts: this.shortcutRows(),
       overlayOpacity: this.config.get('overlay.opacity'),
+      overlayStyle: this.config.get('overlay.style'),
+      overlayGlass: this.config.get('overlay.glass'),
+      ...(this.extras ? this.extras() : {}),
       secureStorage: this.secrets.available,
       providers: this.providerNames.map((name) => {
         const needsKey = KEY_PROVIDERS.includes(name);

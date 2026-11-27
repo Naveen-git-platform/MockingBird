@@ -70,6 +70,10 @@ function registerIpc(ipcMain, { config, appInfo, capture, voice, interview, inte
       overlay.toggle();
       return overlay.state();
     });
+    ipcMain.handle(C.OVERLAY_RESIZE, (_event, size) => {
+      if (!size || typeof size !== 'object' || !Number.isFinite(size.width) || !Number.isFinite(size.height)) return null;
+      return overlay.resize(size.width, size.height);
+    });
     ipcMain.handle(C.OVERLAY_SET_CLICK_THROUGH, (_event, enabled) => {
       overlay.setClickThrough(enabled === true);
       return overlay.state();

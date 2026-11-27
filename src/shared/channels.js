@@ -41,6 +41,7 @@ const INVOKE_CHANNELS = Object.freeze({
   OVERLAY_HIDE: 'overlay:hide',
   OVERLAY_TOGGLE: 'overlay:toggle',
   OVERLAY_SET_CLICK_THROUGH: 'overlay:set-click-through',
+  OVERLAY_RESIZE: 'overlay:resize',
 });
 
 // Fire-and-forget messages from renderer to main.

@@ -12,6 +12,7 @@
   <header class="bar">
     <span class="title">MockingBird</span>
     <span class="spacer"></span>
+    <input id="tint" class="tint" type="range" min="0.05" max="0.95" step="0.05" value="0.35" title="Background tint: slide left for more see-through" aria-label="Background tint" />
     <button id="copy" class="tool" type="button" title="Copy the answer">Copy</button>
     <button id="through" class="tool" type="button" title="Let clicks pass through this window">Click-through</button>
     <button id="close" class="tool" type="button" title="Hide the overlay" aria-label="Hide the overlay">&times;</button>
@@ -20,6 +21,7 @@
     <p id="question" class="question"></p>
     <div id="answer" class="answer" aria-live="polite"><p class="hint">Answers appear here.</p></div>
   </main>
+  <div id="grip" class="grip" title="Drag to resize" aria-hidden="true"></div>
   <script src="theme.js"></script>
   <script src="markdown.js"></script>
   <script src="overlay.js"></script>

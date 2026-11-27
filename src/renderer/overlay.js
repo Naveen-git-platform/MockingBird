@@ -49,11 +49,40 @@
     const on = !throughBtn.classList.contains('on');
     api.invoke('overlay:set-click-through', on);
   });
-  api.on('overlay:state-changed', (state) => throughBtn.classList.toggle('on', state.clickThrough));
   document.addEventListener('click', (event) => {
     const btn = event.target.closest && event.target.closest('[data-copy]');
     if (btn) navigator.clipboard.writeText(btn.closest('pre').querySelector('code').textContent).catch(() => {});
   });
+
+  // ----- look: style (solid, glass, acrylic) and background tint -----
+  const tint = document.getElementById('tint');
+  const applyState = (state) => {
+    if (!state) return;
+    document.documentElement.dataset.surface = state.style;
+    document.body.style.setProperty('--glass', String(state.glass));
+    tint.value = String(state.glass);
+    throughBtn.classList.toggle('on', state.clickThrough);
+    tint.hidden = state.style === 'solid';
+  };
+  api.invoke('overlay:state').then(applyState).catch(() => {});
+  api.on('overlay:state-changed', applyState);
+  tint.addEventListener('input', () => document.body.style.setProperty('--glass', tint.value));
+  tint.addEventListener('change', () => api.invoke('settings:set', 'overlay.glass', Number(tint.value)).catch(() => {}));
+
+  // ----- resize grip (transparent windows have no native resize border) -----
+  const grip = document.getElementById('grip');
+  let drag = null;
+  grip.addEventListener('pointerdown', (e) => {
+    grip.setPointerCapture(e.pointerId);
+    drag = { x: e.screenX, y: e.screenY, w: window.innerWidth, h: window.innerHeight };
+  });
+  grip.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    api.invoke('overlay:resize', { width: drag.w + (e.screenX - drag.x), height: drag.h + (e.screenY - drag.y) }).catch(() => {});
+  });
+  const endDrag = () => { drag = null; };
+  grip.addEventListener('pointerup', endDrag);
+  grip.addEventListener('pointercancel', endDrag);
 
   document.documentElement.dataset.ready = '1';
 })();
