@@ -22,6 +22,10 @@ const { InterviewSession } = require('../src/main/interview/session');
 
 app.on('window-all-closed', () => {});
 
+// Electron encrypts keys with a secret kept in the app's userData folder. Use the same folder as
+// the real app ("mockingbird"), otherwise the keys saved in Settings cannot be decrypted here.
+app.setPath('userData', path.join(app.getPath('appData'), 'mockingbird'));
+
 const results = [];
 const log = (line = '') => process.stdout.write(`${line}\n`);
 
@@ -153,6 +157,9 @@ app.whenReady().then(async () => {
       .filter((n) => !only || only.includes(n))
       .map((n) => createProvider(n, config.get(`llm.providers.${n}`, {}), { getApiKey }));
     const ready = providers.filter((p) => p.isConfigured());
+    for (const name of ['gemini', 'openrouter', 'openai', 'anthropic']) {
+      log(`key for ${name}: ${getApiKey(name) ? 'found' : 'not found'}`);
+    }
     log(`providers with a key or local server: ${ready.map((p) => p.name).join(', ') || 'none'}`);
     for (const p of providers.filter((x) => !x.isConfigured())) record(p.name, 'all checks', 'skip', 'no API key set');
 

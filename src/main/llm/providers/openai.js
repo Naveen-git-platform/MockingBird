@@ -1,7 +1,7 @@
 'use strict';
 
 const { LlmError } = require('../errors');
-const { postJson, parseSSE, safeJson } = require('../http');
+const { postJson, getJson, parseSSE, safeJson } = require('../http');
 const { toParts } = require('../message');
 
 const NAME = 'openai';
@@ -36,7 +36,7 @@ function buildBody(request, settings, model) {
  * Build a provider for any OpenAI-compatible chat API. Used for OpenAI itself and for
  * gateways such as OpenRouter, which only differ by name, default model, URL and headers.
  */
-function createCompatibleProvider({ name, label, defaultModel, defaultBaseUrl, extraHeaders = {} }) {
+function createCompatibleProvider({ name, label, defaultModel, defaultBaseUrl, extraHeaders = {}, publicModelList = false }) {
   return function create(settings, { fetch: fetchImpl = globalThis.fetch, getApiKey }) {
     const model = settings.model || defaultModel;
     const baseUrl = (settings.baseUrl || defaultBaseUrl).replace(/\/$/, '');
@@ -46,6 +46,14 @@ function createCompatibleProvider({ name, label, defaultModel, defaultBaseUrl, e
       model,
       supportsImages: true,
       isConfigured: () => Boolean(getApiKey(name)),
+      /** Model ids the service offers. OpenRouter's list is public; OpenAI's needs the key. */
+      async listModels() {
+        const key = getApiKey(name);
+        if (!publicModelList && !key) throw new LlmError(`${label} API key is not set`, { kind: 'config', provider: name });
+        const headers = key ? { authorization: `Bearer ${key}`, ...extraHeaders } : { ...extraHeaders };
+        const data = await getJson(fetchImpl, `${baseUrl}/models`, { headers, provider: name });
+        return (data.data || []).map((m) => String(m.id)).sort();
+      },
       async *stream(request) {
         const key = getApiKey(name);
         if (!key) throw new LlmError(`${label} API key is not set`, { kind: 'config', provider: name });
@@ -83,6 +91,7 @@ const createOpenRouterProvider = createCompatibleProvider({
   label: 'OpenRouter',
   defaultModel: 'google/gemini-2.5-flash',
   defaultBaseUrl: 'https://openrouter.ai/api/v1',
+  publicModelList: true,
   extraHeaders: { 'HTTP-Referer': 'https://github.com/Naveen-git-platform/MockingBird', 'X-Title': 'MockingBird' },
 });
 

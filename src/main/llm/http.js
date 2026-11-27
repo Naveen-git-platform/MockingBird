@@ -52,6 +52,42 @@ async function postJson(fetchImpl, url, { headers = {}, body, timeoutMs = 30000,
   return response;
 }
 
+/** GET JSON with a timeout; errors are mapped exactly like postJson. */
+async function getJson(fetchImpl, url, { headers = {}, timeoutMs = 15000, signal, provider } = {}) {
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+  const onExternalAbort = () => controller.abort();
+  if (signal) signal.addEventListener('abort', onExternalAbort, { once: true });
+  try {
+    const response = await fetchImpl(url, { method: 'GET', headers, signal: controller.signal });
+    if (!response.ok) {
+      let detail = '';
+      try {
+        detail = (await response.text()).slice(0, 300);
+      } catch {
+        // ignore body read failures
+      }
+      throw new LlmError(`${provider || 'provider'} returned HTTP ${response.status}${detail ? `: ${detail}` : ''}`, {
+        kind: kindFromStatus(response.status),
+        status: response.status,
+        provider,
+      });
+    }
+    return await response.json();
+  } catch (err) {
+    if (err instanceof LlmError) throw err;
+    if (timedOut) throw new LlmError(`Request timed out after ${timeoutMs}ms`, { kind: 'timeout', provider, cause: err });
+    throw new LlmError(`Network error: ${err.message}`, { kind: 'network', provider, cause: err });
+  } finally {
+    clearTimeout(timer);
+    if (signal) signal.removeEventListener('abort', onExternalAbort);
+  }
+}
+
 async function* decodeLines(body) {
   const decoder = new TextDecoder();
   let buffer = '';
@@ -104,4 +140,4 @@ function safeJson(text, provider) {
   }
 }
 
-module.exports = { postJson, parseSSE, parseNDJSON, safeJson };
+module.exports = { postJson, getJson, parseSSE, parseNDJSON, safeJson };

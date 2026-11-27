@@ -43,6 +43,10 @@ Open **Settings**, choose a provider and paste its API key (for example from
 `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` environment variables. Ollama needs no key:
 start it and pull a model such as `ollama pull llama3.2`.
 
+In **Settings**, each provider has a **Test connection** button. If a request fails it shows the
+provider's own error message and, where the provider supports it, the models your key can use so you can
+pick one with a click.
+
 ### Voice input (optional)
 
 Voice uses a local [Whisper](https://github.com/openai/whisper) model, so audio never leaves your computer.

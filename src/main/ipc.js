@@ -52,6 +52,7 @@ function registerIpc(ipcMain, { config, appInfo, capture, voice, interview, inte
     ipcMain.handle(C.SETTINGS_SET, (_event, key, value) => settings.setSetting(key, value));
     ipcMain.handle(C.SETTINGS_SET_KEY, (_event, name, value) => settings.setKey(name, value));
     ipcMain.handle(C.SETTINGS_DELETE_KEY, (_event, name) => settings.deleteKey(name));
+    ipcMain.handle(C.SETTINGS_TEST_PROVIDER, (_event, name) => settings.testProvider(String(name)));
   }
 
   if (llm) ipcMain.handle(C.LLM_STATUS, () => llm.describe());

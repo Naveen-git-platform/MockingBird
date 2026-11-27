@@ -1,7 +1,7 @@
 'use strict';
 
 const { LlmError } = require('../errors');
-const { postJson, parseSSE, safeJson } = require('../http');
+const { postJson, getJson, parseSSE, safeJson } = require('../http');
 const { toParts } = require('../message');
 
 const NAME = 'gemini';
@@ -32,6 +32,17 @@ function createGeminiProvider(settings, { fetch: fetchImpl = globalThis.fetch, g
     model,
     supportsImages: true,
     isConfigured: () => Boolean(getApiKey(NAME)),
+    /** Model ids this key can call for chat, such as `gemini-2.5-flash`. */
+    async listModels() {
+      const key = getApiKey(NAME);
+      if (!key) throw new LlmError('Gemini API key is not set', { kind: 'config', provider: NAME });
+      const data = await getJson(fetchImpl, `${baseUrl}/models?pageSize=200`, { headers: { 'x-goog-api-key': key }, provider: NAME });
+      return (data.models || [])
+        .filter((m) => (m.supportedGenerationMethods || []).includes('generateContent'))
+        .map((m) => String(m.name).replace(/^models\//, ''))
+        .filter((id) => id.startsWith('gemini'))
+        .sort();
+    },
     async *stream(request) {
       const key = getApiKey(NAME);
       if (!key) throw new LlmError('Gemini API key is not set', { kind: 'config', provider: NAME });

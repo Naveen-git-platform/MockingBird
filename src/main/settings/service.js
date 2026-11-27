@@ -67,6 +67,32 @@ class SettingsService {
     this.shortcuts.apply(map, { enabled: this.config.get('shortcuts.enabled') !== false });
   }
 
+  /**
+   * Send one tiny request to a provider and report what happened, including the provider's own
+   * error text. On failure it also tries to list the models the key can use.
+   */
+  async testProvider(name) {
+    const provider = this.llm.providers.find((p) => p.name === name);
+    if (!provider) throw new Error(`Unknown provider: ${name}`);
+    if (!provider.isConfigured()) return { ok: false, kind: 'config', error: 'No API key is saved for this provider.' };
+    const started = Date.now();
+    try {
+      let text = '';
+      for await (const delta of provider.stream({ messages: [{ role: 'user', content: 'Reply with exactly one word: pong' }], maxTokens: 30, temperature: 0 })) text += delta;
+      return { ok: true, ms: Date.now() - started, reply: text.trim().slice(0, 60), model: provider.model };
+    } catch (err) {
+      const result = { ok: false, ms: Date.now() - started, kind: err.kind || 'unknown', status: err.status, error: String(err.message).slice(0, 400), model: provider.model };
+      if (typeof provider.listModels === 'function' && (err.kind === 'bad_request' || err.kind === 'server')) {
+        try {
+          result.models = (await provider.listModels()).slice(0, 300);
+        } catch (listErr) {
+          result.modelsError = String(listErr.message).slice(0, 200);
+        }
+      }
+      return result;
+    }
+  }
+
   _provider(name) {
     if (!KEY_PROVIDERS.includes(name)) throw new Error(`${name} does not use an API key`);
   }
