@@ -79,9 +79,9 @@
     overlayGlass: prefs.overlayGlass,
     overlayStyles: [{ id: 'solid', label: 'Solid', available: true }, { id: 'glass', label: 'Glass (see-through)', available: true }, { id: 'acrylic', label: 'Frosted (acrylic)', available: true }],
     secureStorage: true,
-    providers: ['gemini', 'openai', 'anthropic', 'ollama'].map((name) => ({
+    providers: ['gemini', 'openrouter', 'openai', 'anthropic', 'ollama'].map((name) => ({
       name,
-      model: { gemini: 'gemini-2.5-flash', openai: 'gpt-4o-mini', anthropic: 'claude-sonnet-5-5', ollama: 'llama3.2' }[name],
+      model: { gemini: 'gemini-2.5-flash', openrouter: 'google/gemini-2.5-flash', openai: 'gpt-4o-mini', anthropic: 'claude-sonnet-5-5', ollama: 'llama3.2' }[name],
       needsKey: name !== 'ollama',
       keySource: prefs.keys[name] || null,
       configured: name === 'ollama' || Boolean(prefs.keys[name]),

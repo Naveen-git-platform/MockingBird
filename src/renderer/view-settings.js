@@ -3,7 +3,7 @@
   const MB = window.MB;
   const { el } = MB;
 
-  const LABELS = { gemini: 'Google Gemini', openai: 'OpenAI', anthropic: 'Anthropic Claude', ollama: 'Ollama (local)' };
+  const LABELS = { gemini: 'Google Gemini', openrouter: 'OpenRouter', openai: 'OpenAI', anthropic: 'Anthropic Claude', ollama: 'Ollama (local)' };
   const KEY_BADGE = {
     stored: { text: 'key saved', cls: 'good' },
     env: { text: 'key from environment', cls: 'good' },
