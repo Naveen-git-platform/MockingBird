@@ -147,3 +147,5 @@ pre.code code { display: block; padding: 12px; overflow-x: auto; background: non
 .theme-btn .dots { display: inline-flex; }
 .theme-btn .dots i { width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--border); margin-left: -4px; }
 .theme-btn .dots i:first-child { margin-left: 0; }
+.test-result { margin-top: 6px; }
+.test-result .msg { padding: 8px 12px; background: var(--surface-2); border: 1px solid var(--bad); border-radius: 10px; overflow-wrap: anywhere; }

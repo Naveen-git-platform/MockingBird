@@ -36,6 +36,7 @@ const INVOKE_CHANNELS = Object.freeze({
   SETTINGS_SET: 'settings:set',
   SETTINGS_SET_KEY: 'settings:set-key',
   SETTINGS_DELETE_KEY: 'settings:delete-key',
+  SETTINGS_TEST_PROVIDER: 'settings:test-provider',
   OVERLAY_STATE: 'overlay:state',
   OVERLAY_SHOW: 'overlay:show',
   OVERLAY_HIDE: 'overlay:hide',

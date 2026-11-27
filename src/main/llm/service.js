@@ -50,7 +50,7 @@ class LlmService {
         } catch (err) {
           const error = err instanceof LlmError ? err : new LlmError(err.message, { kind: 'unknown', provider: provider.name, cause: err });
           lastError = error;
-          this.logger?.warn('llm attempt failed', { provider: provider.name, attempt, kind: error.kind });
+          this.logger?.warn('llm attempt failed', { provider: provider.name, attempt, kind: error.kind, status: error.status, message: String(error.message).slice(0, 300) });
           if (error.kind === 'aborted') throw error;
           if (text.length > 0) throw error;
           if (!error.retryable) break;

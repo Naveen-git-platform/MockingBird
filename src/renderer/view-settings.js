@@ -64,7 +64,45 @@
         } else {
           rows.push(el('p', { class: 'sub', text: 'Runs on your own computer. Start Ollama and pull a model first (for example: ollama pull llama3.2).' }));
         }
+        rows.push(testRow(p, model));
         return el('div', { class: 'card' }, ...rows);
+      }
+
+      /** "Test connection" for one provider: shows the provider's own error and the models the key can use. */
+      function testRow(p, modelInput) {
+        const out = el('div', { class: 'test-result', 'aria-live': 'polite' });
+        const btn = el('button', { class: 'btn', type: 'button', text: 'Test connection', disabled: p.needsKey && !p.configured });
+        btn.addEventListener('click', async () => {
+          btn.disabled = true;
+          out.replaceChildren(el('span', { class: 'sub', text: 'Testing…' }));
+          const r = await MB.call('settings:test-provider', p.name);
+          btn.disabled = false;
+          out.replaceChildren();
+          if (!r) return;
+          if (r.ok) {
+            out.append(el('span', { class: 'badge good', text: `Working (${(r.ms / 1000).toFixed(1)} s)` }), el('span', { class: 'sub', text: ` using ${r.model}` }));
+            return;
+          }
+          out.append(el('p', { class: 'msg error', text: r.error || 'The test failed.' }));
+          if (r.models && r.models.length) {
+            const pick = MB.select(r.models.map((m) => ({ id: m, label: m })), r.models.includes(r.model) ? r.model : r.models[0]);
+            const use = el('button', {
+              class: 'btn primary',
+              type: 'button',
+              text: 'Use this model',
+              onclick: async () => {
+                if (await MB.call('settings:set', `llm.providers.${p.name}.model`, pick.value)) {
+                  modelInput.value = pick.value;
+                  MB.toast('Model changed. Test again.', 'good');
+                }
+              },
+            });
+            out.append(el('p', { class: 'sub', text: `${r.models.length} models are available to this key. Pick one:` }), el('div', { class: 'row' }, pick, use));
+          } else if (r.modelsError) {
+            out.append(el('p', { class: 'sub', text: `Could not list models: ${r.modelsError}` }));
+          }
+        });
+        return el('div', {}, el('div', { class: 'row' }, btn), out);
       }
 
       function shortcutsCard() {
