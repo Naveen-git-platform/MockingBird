@@ -1,7 +1,7 @@
 'use strict';
 
-const KEY_PROVIDERS = Object.freeze(['gemini', 'openai', 'anthropic']);
-const ENV_KEYS = Object.freeze({ gemini: 'GEMINI_API_KEY', openai: 'OPENAI_API_KEY', anthropic: 'ANTHROPIC_API_KEY' });
+const KEY_PROVIDERS = Object.freeze(['gemini', 'openrouter', 'openai', 'anthropic']);
+const ENV_KEYS = Object.freeze({ gemini: 'GEMINI_API_KEY', openrouter: 'OPENROUTER_API_KEY', openai: 'OPENAI_API_KEY', anthropic: 'ANTHROPIC_API_KEY' });
 
 /** Look up an API key: the encrypted store first, then the environment variable. */
 function makeKeyResolver({ secrets, env = process.env }) {

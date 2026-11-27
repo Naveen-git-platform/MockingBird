@@ -1,12 +1,13 @@
 'use strict';
 
 const { createGeminiProvider } = require('./providers/gemini');
-const { createOpenAIProvider } = require('./providers/openai');
+const { createOpenAIProvider, createOpenRouterProvider } = require('./providers/openai');
 const { createAnthropicProvider } = require('./providers/anthropic');
 const { createOllamaProvider } = require('./providers/ollama');
 
 const FACTORIES = {
   gemini: createGeminiProvider,
+  openrouter: createOpenRouterProvider,
   openai: createOpenAIProvider,
   anthropic: createAnthropicProvider,
   ollama: createOllamaProvider,
@@ -14,6 +15,7 @@ const FACTORIES = {
 
 const ENV_KEYS = {
   gemini: 'GEMINI_API_KEY',
+  openrouter: 'OPENROUTER_API_KEY',
   openai: 'OPENAI_API_KEY',
   anthropic: 'ANTHROPIC_API_KEY',
 };

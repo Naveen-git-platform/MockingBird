@@ -87,6 +87,7 @@ function defaults(homeDir) {
       baseDelayMs: 400,
       providers: {
         gemini: { model: 'gemini-2.5-flash' },
+        openrouter: { model: 'google/gemini-2.5-flash' },
         openai: { model: 'gpt-4o-mini' },
         anthropic: { model: 'claude-sonnet-5-5' },
         ollama: { model: 'llama3.2', baseUrl: 'http://127.0.0.1:11434' },

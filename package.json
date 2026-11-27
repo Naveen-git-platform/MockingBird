@@ -21,7 +21,8 @@
     "dist": "electron-builder",
     "dist:win": "electron-builder --win",
     "dist:linux": "electron-builder --linux",
-    "build:themes": "node scripts/build-themes.js"
+    "build:themes": "node scripts/build-themes.js",
+    "live-check": "node scripts/run-electron.js scripts/live-check.js"
   },
   "devDependencies": {
     "electron": "^45.5.0",

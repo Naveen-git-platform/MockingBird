@@ -32,37 +32,58 @@ function buildBody(request, settings, model) {
   };
 }
 
-/** Works with OpenAI and any OpenAI-compatible server via `baseUrl`. */
-function createOpenAIProvider(settings, { fetch: fetchImpl = globalThis.fetch, getApiKey }) {
-  const model = settings.model || 'gpt-4o-mini';
-  const baseUrl = (settings.baseUrl || 'https://api.openai.com/v1').replace(/\/$/, '');
+/**
+ * Build a provider for any OpenAI-compatible chat API. Used for OpenAI itself and for
+ * gateways such as OpenRouter, which only differ by name, default model, URL and headers.
+ */
+function createCompatibleProvider({ name, label, defaultModel, defaultBaseUrl, extraHeaders = {} }) {
+  return function create(settings, { fetch: fetchImpl = globalThis.fetch, getApiKey }) {
+    const model = settings.model || defaultModel;
+    const baseUrl = (settings.baseUrl || defaultBaseUrl).replace(/\/$/, '');
 
-  return {
-    name: NAME,
-    model,
-    supportsImages: true,
-    isConfigured: () => Boolean(getApiKey(NAME)),
-    async *stream(request) {
-      const key = getApiKey(NAME);
-      if (!key) throw new LlmError('OpenAI API key is not set', { kind: 'config', provider: NAME });
-      const response = await postJson(fetchImpl, `${baseUrl}/chat/completions`, {
-        headers: { authorization: `Bearer ${key}` },
-        body: buildBody(request, settings, model),
-        timeoutMs: settings.timeoutMs ?? 30000,
-        signal: request.signal,
-        provider: NAME,
-      });
-      for await (const evt of parseSSE(response.body)) {
-        if (evt.data === '[DONE]') return;
-        const payload = safeJson(evt.data, NAME);
-        if (payload.error) {
-          throw new LlmError(payload.error.message || 'OpenAI stream error', { kind: 'server', provider: NAME });
+    return {
+      name,
+      model,
+      supportsImages: true,
+      isConfigured: () => Boolean(getApiKey(name)),
+      async *stream(request) {
+        const key = getApiKey(name);
+        if (!key) throw new LlmError(`${label} API key is not set`, { kind: 'config', provider: name });
+        const response = await postJson(fetchImpl, `${baseUrl}/chat/completions`, {
+          headers: { authorization: `Bearer ${key}`, ...extraHeaders },
+          body: buildBody(request, settings, model),
+          timeoutMs: settings.timeoutMs ?? 30000,
+          signal: request.signal,
+          provider: name,
+        });
+        for await (const evt of parseSSE(response.body)) {
+          if (evt.data === '[DONE]') return;
+          const payload = safeJson(evt.data, name);
+          if (payload.error) {
+            throw new LlmError(payload.error.message || `${label} stream error`, { kind: 'server', provider: name });
+          }
+          const delta = payload.choices?.[0]?.delta?.content;
+          if (delta) yield delta;
         }
-        const delta = payload.choices?.[0]?.delta?.content;
-        if (delta) yield delta;
-      }
-    },
+      },
+    };
   };
 }
 
-module.exports = { createOpenAIProvider, buildBody };
+const createOpenAIProvider = createCompatibleProvider({
+  name: NAME,
+  label: 'OpenAI',
+  defaultModel: 'gpt-4o-mini',
+  defaultBaseUrl: 'https://api.openai.com/v1',
+});
+
+/** OpenRouter: one key, many models (for example `google/gemini-2.5-flash`). */
+const createOpenRouterProvider = createCompatibleProvider({
+  name: 'openrouter',
+  label: 'OpenRouter',
+  defaultModel: 'google/gemini-2.5-flash',
+  defaultBaseUrl: 'https://openrouter.ai/api/v1',
+  extraHeaders: { 'HTTP-Referer': 'https://github.com/Naveen-git-platform/MockingBird', 'X-Title': 'MockingBird' },
+});
+
+module.exports = { createOpenAIProvider, createOpenRouterProvider, createCompatibleProvider, buildBody };

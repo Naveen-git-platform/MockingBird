@@ -96,7 +96,7 @@ test('key resolver prefers stored keys, falls back to env, and ignores unknown p
   assert.equal(get('anthropic'), '');
   assert.equal(get('ollama'), '');
   assert.equal(get('../evil'), '');
-  assert.deepEqual(KEY_PROVIDERS, ['gemini', 'openai', 'anthropic']);
+  assert.deepEqual(KEY_PROVIDERS, ['gemini', 'openrouter', 'openai', 'anthropic']);
 });
 
 test('key resolver survives a failing secret store', () => {

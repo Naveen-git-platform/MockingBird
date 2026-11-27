@@ -16,6 +16,7 @@ const ALLOWED = ({
   'llm.primary': (v, ctx) => ctx.providers.includes(v),
   'llm.providers.gemini.model': (v) => modelOk(v),
   'llm.providers.openai.model': (v) => modelOk(v),
+  'llm.providers.openrouter.model': (v) => modelOk(v),
   'llm.providers.anthropic.model': (v) => modelOk(v),
   'llm.providers.ollama.model': (v) => modelOk(v),
   'routing.target': (v) => ['chat', 'overlay', 'both'].includes(v),

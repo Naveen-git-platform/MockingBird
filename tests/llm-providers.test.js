@@ -4,13 +4,13 @@ const { createProvider, listProviderNames } = require('../src/main/llm/registry'
 const { LlmError } = require('../src/main/llm/errors');
 const { streamResponse, sse, fakeFetch, collect } = require('./helpers/fake-fetch');
 
-const keys = { gemini: 'g-key', openai: 'o-key', anthropic: 'a-key' };
+const keys = { gemini: 'g-key', openai: 'o-key', anthropic: 'a-key', openrouter: 'r-key' };
 const getApiKey = (n) => keys[n] || '';
 const IMG = { type: 'image', mimeType: 'image/png', data: 'QUJD' };
 const base = { system: 'be brief', messages: [{ role: 'user', content: 'hi' }] };
 
-test('registry lists the four providers and rejects unknown ones', () => {
-  assert.deepEqual(listProviderNames().sort(), ['anthropic', 'gemini', 'ollama', 'openai']);
+test('registry lists the five providers and rejects unknown ones', () => {
+  assert.deepEqual(listProviderNames().sort(), ['anthropic', 'gemini', 'ollama', 'openai', 'openrouter']);
   assert.throws(() => createProvider('nope'), /Unknown LLM provider/);
 });
 
@@ -135,4 +135,42 @@ test('malformed stream payloads surface as server errors', async () => {
   const f = fakeFetch(streamResponse(['data: {not json\n\n']));
   const p = createProvider('openai', {}, { fetch: f, getApiKey });
   await assert.rejects(collect(p.stream(base)), (e) => e.kind === 'server');
+});
+
+test('openrouter: uses its own key, URL, default model and attribution headers', async () => {
+  const f = fakeFetch(streamResponse(sse([JSON.stringify({ choices: [{ delta: { content: 'pong' } }] }), '[DONE]'])));
+  const p = createProvider('openrouter', {}, { fetch: f, getApiKey });
+  assert.equal(p.name, 'openrouter');
+  assert.equal(p.model, 'google/gemini-2.5-flash');
+  assert.equal(await collect(p.stream(base)), 'pong');
+  const call = f.calls[0];
+  assert.equal(call.url, 'https://openrouter.ai/api/v1/chat/completions');
+  assert.equal(call.init.headers.authorization, 'Bearer r-key');
+  assert.equal(call.init.headers['X-Title'], 'MockingBird');
+  assert.match(call.init.headers['HTTP-Referer'], /^https:\/\/github\.com\//);
+  assert.equal(call.body.model, 'google/gemini-2.5-flash');
+});
+
+test('openrouter: a configured model overrides the default, and the OpenAI key is not used', async () => {
+  const f = fakeFetch(streamResponse(sse(['[DONE]'])));
+  const p = createProvider('openrouter', { model: 'anthropic/claude-3.5-sonnet' }, { fetch: f, getApiKey: (n) => (n === 'openai' ? 'wrong' : '') });
+  assert.equal(p.isConfigured(), false);
+  await assert.rejects(collect(p.stream(base)), (e) => e.kind === 'config' && /OpenRouter API key is not set/.test(e.message));
+  const q = createProvider('openrouter', { model: 'anthropic/claude-3.5-sonnet' }, { fetch: f, getApiKey });
+  await collect(q.stream(base));
+  assert.equal(f.calls[0].body.model, 'anthropic/claude-3.5-sonnet');
+});
+
+test('openrouter: images, stream errors and HTTP errors behave like OpenAI', async () => {
+  const f = fakeFetch(streamResponse(sse([JSON.stringify({ error: { message: 'No endpoints found for model' } })])));
+  const p = createProvider('openrouter', {}, { fetch: f, getApiKey });
+  await assert.rejects(collect(p.stream({ messages: [{ role: 'user', content: [{ type: 'text', text: 't' }, IMG] }] })), (e) => e.kind === 'server' && e.provider === 'openrouter' && /No endpoints/.test(e.message));
+  assert.equal(f.calls[0].body.messages[0].content[1].image_url.url, 'data:image/png;base64,QUJD');
+  const denied = createProvider('openrouter', {}, { fetch: fakeFetch(new Response('bad key', { status: 401 })), getApiKey });
+  await assert.rejects(collect(denied.stream(base)), (e) => e.kind === 'auth' && e.provider === 'openrouter');
+});
+
+test('openrouter comment lines in the stream are ignored', async () => {
+  const f = fakeFetch(streamResponse([': OPENROUTER PROCESSING\n\n', `data: ${JSON.stringify({ choices: [{ delta: { content: 'ok' } }] })}\n\n`, 'data: [DONE]\n\n']));
+  assert.equal(await collect(createProvider('openrouter', {}, { fetch: f, getApiKey }).stream(base)), 'ok');
 });

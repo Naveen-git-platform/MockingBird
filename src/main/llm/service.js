@@ -69,7 +69,7 @@ class LlmService {
  * `service.rebuild()` re-reads the config (call it after settings change).
  */
 function createLlmService(config, { createProvider, logger, sleep, fetch, getApiKey, providerNames } = {}) {
-  const names = providerNames || ['gemini', 'openai', 'anthropic', 'ollama'];
+  const names = providerNames || ['gemini', 'openrouter', 'openai', 'anthropic', 'ollama'];
   const deps = {};
   if (fetch) deps.fetch = fetch;
   if (getApiKey) deps.getApiKey = getApiKey;

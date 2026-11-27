@@ -18,8 +18,8 @@ hints first, scored feedback, and a progress record.
   acrylic glass, Windows 11 and macOS), or solid, and slide the background tint to taste so you can keep
   working underneath. It is an ordinary visible window. Choose whether answers appear in the chat, the overlay or both, and
   optionally have spoken questions answered automatically.
-- **Your choice of AI.** Google Gemini, OpenAI (and compatible servers), Anthropic Claude, or local
-  models through Ollama, with automatic fallback between the ones you have set up.
+- **Your choice of AI.** Google Gemini, OpenRouter (one key, many models), OpenAI (and compatible
+  servers), Anthropic Claude, or local models through Ollama, with automatic fallback between the ones you have set up.
 - **Progress.** Finished interviews are saved on your computer with averages, a trend, a practice
   streak and Markdown export.
 - **Themes.** Seven colour themes (Midnight, Daylight, Ocean, Forest, Sunset, Paper, or match your system)
@@ -40,7 +40,7 @@ npm start
 
 Open **Settings**, choose a provider and paste its API key (for example from
 [Google AI Studio](https://aistudio.google.com/) for Gemini). Keys can also come from the
-`GEMINI_API_KEY`, `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` environment variables. Ollama needs no key:
+`GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` environment variables. Ollama needs no key:
 start it and pull a model such as `ollama pull llama3.2`.
 
 ### Voice input (optional)
@@ -80,6 +80,7 @@ On macOS, `Ctrl` is `Cmd`.
 ```bash
 npm test         # unit tests (Node's built-in runner)
 npm run smoke    # boots the real app headlessly and checks the UI loads without errors
+npm run live-check  # real requests to the providers you have keys for (ping, streaming, image, practice and interview flows)
 npm run pack     # builds an unpacked app into dist/
 npm run build:themes  # regenerates src/renderer/tokens.css after editing src/shared/themes.js
 ```
